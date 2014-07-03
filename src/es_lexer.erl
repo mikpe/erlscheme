@@ -113,7 +113,7 @@ string_to_number(String, Radix) ->
       es_lexinput:close(LI)
     end
   after
-    es_raw_port:close_port(Port)
+    es_raw_port:close_input_port(Port)
   end.
 
 %% scan_hash: read what follows a '#'

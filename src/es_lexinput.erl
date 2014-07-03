@@ -102,7 +102,7 @@ handle_name(State, Pid) ->
   handle_yield_continue(State, Pid, {ok, Name}).
 
 handle_close(State, Pid) ->
-  es_raw_port:close_port(State#state.port),
+  es_raw_port:close_input_port(State#state.port),
   Pid ! {self(), {ok, true}}. % no continue -> terminate process
 
 command(Pid, Cmd) ->

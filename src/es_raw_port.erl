@@ -16,23 +16,26 @@
 %%%
 %%% es_raw_port.erl
 %%%
-%%% A raw input port is implemented by an Erlang process that maintains
-%%% its hidden state.  All parameters and results have normal Erlang
-%%% representation, in particular, no wrapped es_datum values occur,
-%%% characters are non-negative integers, and EOF is -1.
+%%% A raw port is implemented by an Erlang process that maintains the
+%%% port's hidden state and receives messages describing operations to
+%%% perform.  A port-specific function vector determines how messages
+%%% are dispatched to port-specific code.
+%%%
+%%% Ports transmit character data in its normal Erlang representation,
+%%% in particular, no wrapped es_datum values occur, characters are
+%%% non-negative integers, and EOF is -1.
 %%%
 %%% TODO:
 %%% - output ports
 %%% - textual-port stuff
 %%% - binary-port stuff
-%%% - store the per-port state in ETS instead?
 
 -module(es_raw_port).
 
 -export([read_char/1,
 	 peek_char/1,
 	 is_char_ready/1,
-	 close_port/1,
+	 close_input_port/1,
 	 open_input_file/1,
 	 open_input_string/1,
 	 open_stdin/0]).
@@ -99,7 +102,7 @@ peek_char(Pid) ->
 is_char_ready(Pid) ->
   command(Pid, 'is_char_ready').
 
-close_port(Pid) ->
+close_input_port(Pid) ->
   command(Pid, 'close').
 
 %% String input ports
