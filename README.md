@@ -56,7 +56,6 @@ Omissions:
 - Exception handling is limited to restarting the REPL after printing
   a message about the exception that occurred.
 - The macro / syntax system is old-fashioned and primitive.
-- The term printer is still Erlang's, so it uses Erlang syntax.
 
 Planned extensions:
 - Compiler from ErlScheme to Erlang or Core Erlang, and then to .beam object files.
