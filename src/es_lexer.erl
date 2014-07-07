@@ -354,7 +354,7 @@ scan_string_backslash(LI, Acc) ->
 %% <symbol element>, after seeing a backslash.  Apart from <string gap>,
 %% the differences between <string element> and <symbol element> in R7RS
 %% 7.1.1 seem like documentation mistakes, so we deliberately allow the
-%% same escape sequences for both contexts.  <string gap> is handles by
+%% same escape sequences for both contexts.  <string gap> is handled by
 %% tagging and returning any unrecognized character, letting the context
 %% determine whether that character is valid or not.
 
