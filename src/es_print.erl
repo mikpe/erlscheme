@@ -80,7 +80,6 @@ print_tuple(Tuple, DepthLim, WidthLim, IsDisplay) ->
     {'ES:STRING', Binary} -> print_string(Binary, IsDisplay);
     %% {'ES:BYTEVECTOR', Binary} -> ;
     {'ES:PORT', PortHandle} -> io:format("#<port ~s>", [erlang:pid_to_list(PortHandle)]);
-    {'ES:CLOSURE', _Formals, _Body, _Env, _RecEnv} -> io:format("#<closure>");
     _ when element(1, Tuple) =:= 'ES:VECTOR' ->
       io:format("#("),
       print_vector(Tuple, 0, DepthLim, WidthLim, IsDisplay),

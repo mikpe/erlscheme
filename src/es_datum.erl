@@ -82,11 +82,9 @@
 %%% corresponding type.  We represent them as our private handles
 %%% inside tagged tuples.
 %%%
-%%% Erlang function	Fun/1
-%%% lambda closure	{'ES:CLOSURE', Formals, Body, Env, RecEnv}
+%%% procedure		Fun/1
 %%%
-%%% An ErlScheme procedure is either a primitive implemented in Erlang,
-%%% or a closure from an evaluated lambda expression.
+%%% An ErlScheme procedure becomes an arity-1 Erlang function.
 %%%
 %%% tid			pid
 %%%

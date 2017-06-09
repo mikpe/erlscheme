@@ -70,15 +70,7 @@ interpret_call(Fun, Args, Env) ->
   do_apply(interpret(Fun, Env), [interpret(Arg, Env) || Arg <- Args]).
 
 do_apply(FVal, Actuals) ->
-  case FVal of
-    Fun when is_function(Fun) ->
-      Fun(Actuals);
-    {'ES:CLOSURE', Formals, Body, Env, RecEnv} ->
-      RecEnv2 = unfold_recenv(RecEnv),
-      Env2 = es_env:overlay(Env, RecEnv2),
-      Env3 = bind_formals(Formals, Actuals, Env2),
-      interpret(Body, Env3)
-  end.
+  FVal(Actuals).
 
 bind_formals([], [], Env) ->
   Env;
@@ -104,7 +96,9 @@ interpret_if(Pred, Then, Else, Env) ->
   interpret(case interpret(Pred, Env) of false -> Else; _ -> Then end, Env).
 
 interpret_lambda(Formals, Body, Env) ->
-  {'ES:CLOSURE', Formals, Body, Env, es_env:empty()}.
+  fun(Actuals) ->
+      interpret(Body, bind_formals(Formals, Actuals, Env))
+  end.
 
 interpret_let(Bindings, Body, Env) ->
   interpret(Body, es_env:overlay(Env, interpret_let_bindings(Bindings, Env))).
@@ -130,13 +124,17 @@ interpret_letrec_bindings(Bindings, Env) ->
 
 unfold_recenv(RecEnv) ->
   es_env:map(RecEnv,
-	     fun(_Var, {'ES:CLOSURE', F, B, E, _}) ->
-		 {'ES:CLOSURE', F, B, E, RecEnv}
+	     fun(_Var, {Formals, Body, Env}) ->
+		 fun(Actuals) ->
+		     RecEnv2 = unfold_recenv(RecEnv),
+		     Env2 = es_env:overlay(Env, RecEnv2),
+		     Env3 = bind_formals(Formals, Actuals, Env2),
+		     interpret(Body, Env3)
+		 end
 	     end).
 
 interpret_letrec_binding({Var, Formals, Body}, Env, RecEnv) ->
-  %% initially Var gets bound to a closure with an empty RecEnv
-  es_env:enter(RecEnv, Var, interpret_lambda(Formals, Body, Env)).
+  es_env:enter(RecEnv, Var, {Formals, Body, Env}).
 
 interpret_locvar(Var, Env) ->
   es_env:get(Env, Var).
