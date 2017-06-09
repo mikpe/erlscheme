@@ -20,7 +20,7 @@
 
 -module(es_lib_scheme_base).
 
--export([init/0, do_load/1]).
+-export([init/0]).
 
 init() ->
   define_var(':', fun ':'/1), % ErlScheme-specific hook into Erlang
@@ -112,30 +112,4 @@ listp(_) -> false.
   es_gloenv:insert(Name, Tag, Val).
 
 'load'([String]) ->
-  do_load(binary_to_list(es_datum:string_to_binary(String))).
-
-do_load(FileName) ->
-  OldPrefix = erlang:get('es_load_prefix'),
-  NewPath = filename:join(OldPrefix, FileName),
-  P = es_raw_port:open_input_file(NewPath),
-  erlang:put('es_load_prefix', filename:dirname(NewPath)),
-  try
-    LI = es_lexinput:open(P, FileName),
-    try
-      load_loop(LI)
-    after
-      es_lexinput:close(LI)
-    end
-  after
-    erlang:put('es_load_prefix', OldPrefix)
-  end.
-
-load_loop(LI) ->
-  Datum = es_read:read(LI),
-  case es_datum:is_eof_object(Datum) of
-    false ->
-      es_eval:dynamic_eval(Datum),
-      load_loop(LI);
-    true ->
-      true
-  end.
+  es_load:load(binary_to_list(es_datum:string_to_binary(String))).

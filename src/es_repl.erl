@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014 Mikael Pettersson
+%%%   Copyright 2014-2017 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ es_load_init() ->
   io:format("Loading es_init.scm ..."),
   {ok, ScmPrefix} = es_path:lib_dir("scm"),
   erlang:put('es_load_prefix', ScmPrefix),
-  es_lib_scheme_base:do_load("es-init.scm"),
+  es_load:load("es-init.scm"),
   io:format(" done~n").
 
 repl(N, LI) ->
