@@ -71,7 +71,7 @@ interpret_call(Fun, Args, Env) ->
 
 do_apply(FVal, Actuals) ->
   case FVal of
-    {'ES:ERLFUNC', Fun} ->
+    Fun when is_function(Fun) ->
       Fun(Actuals);
     {'ES:CLOSURE', Formals, Body, Env, RecEnv} ->
       RecEnv2 = unfold_recenv(RecEnv),

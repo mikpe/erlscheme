@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014 Mikael Pettersson
+%%%   Copyright 2014-2017 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -50,13 +50,12 @@ init() ->
   ok.
 
 define_var(Name, Fun) ->
-  es_gloenv:insert(Name, 'var', {'ES:ERLFUNC', Fun}).
+  es_gloenv:insert(Name, 'var', Fun).
 
 ':'([M, F]) ->
-  {'ES:ERLFUNC',
-   fun (Args) ->
-       erlang:apply(M, F, Args)
-   end}.
+  fun (Args) ->
+      erlang:apply(M, F, Args)
+  end.
 
 '*'(Args) -> '*'(Args, 1).
 '*'([], Acc) -> Acc;

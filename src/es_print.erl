@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014 Mikael Pettersson
+%%%   Copyright 2014-2017 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -50,6 +50,8 @@ print(Term, DepthLim, WidthLim, IsDisplay) ->
     false -> io:format("#f");
     _ when is_number(Term) -> io:format("~p", [Term]);
     _ when is_atom(Term) -> print_symbol(Term, IsDisplay);
+    _ when is_function(Term) ->
+      io:format("#<subr ~s>", [erlang:fun_to_list(Term)]);
     _ when is_tuple(Term) -> print_tuple(Term, DepthLim, WidthLim, IsDisplay)
   end.
 
@@ -78,7 +80,6 @@ print_tuple(Tuple, DepthLim, WidthLim, IsDisplay) ->
     {'ES:STRING', Binary} -> print_string(Binary, IsDisplay);
     %% {'ES:BYTEVECTOR', Binary} -> ;
     {'ES:PORT', PortHandle} -> io:format("#<port ~s>", [erlang:pid_to_list(PortHandle)]);
-    {'ES:ERLFUNC', Fun} -> io:format("#<subr ~s>", [erlang:fun_to_list(Fun)]);
     {'ES:CLOSURE', _Formals, _Body, _Env, _RecEnv} -> io:format("#<closure>");
     _ when element(1, Tuple) =:= 'ES:VECTOR' ->
       io:format("#("),

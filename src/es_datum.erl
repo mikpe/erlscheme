@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014 Mikael Pettersson
+%%%   Copyright 2014-2017 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@
 %%% corresponding type.  We represent them as our private handles
 %%% inside tagged tuples.
 %%%
-%%% Erlang function	{'ES:ERLFUNC', Fun}
+%%% Erlang function	Fun/1
 %%% lambda closure	{'ES:CLOSURE', Formals, Body, Env, RecEnv}
 %%%
 %%% An ErlScheme procedure is either a primitive implemented in Erlang,
