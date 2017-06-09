@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2015 Mikael Pettersson
+%%%   Copyright 2014-2017 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -38,12 +38,12 @@ dynamic_eval(Sexpr) ->
   end.
 
 primitive_eval(Sexpr) ->
-  interpret(parse_toplevel(Sexpr), env_empty()).
+  interpret(parse_toplevel(Sexpr), es_env:empty()).
 
 %% Parser from S-expressions to ASTs
 
 parse_toplevel(Sexpr) ->
-  parse(Sexpr, env_empty(), true).
+  parse(Sexpr, es_env:empty(), true).
 
 parse(Sexpr, Env) ->
   parse(Sexpr, Env, false).
@@ -116,7 +116,7 @@ parse_atom(Atom, Env) ->
     false ->
       {'ES:QUOTE', Atom};
     _ ->
-      case env_lookup(Env, Atom) of
+      case es_env:lookup(Env, Atom) of
 	{value, _} ->
 	  {'ES:LOCVAR', Atom};
 	none ->
@@ -160,8 +160,8 @@ parse_if(Tl, Env) ->
 parse_lambda(Tl, Env) ->
   case Tl of
     [Formals, Body] ->
-      ScopeEnv = parse_formals(Formals, env_empty()),
-      {'ES:LAMBDA', Formals, parse(Body, env_overlay(Env, ScopeEnv))};
+      ScopeEnv = parse_formals(Formals, es_env:empty()),
+      {'ES:LAMBDA', Formals, parse(Body, es_env:overlay(Env, ScopeEnv))};
     _ ->
       erlang:throw({bad_lambda, Tl})
   end.
@@ -179,9 +179,9 @@ parse_formals(Formals, ScopeEnv) ->
   end.
 
 bind(Var, ScopeEnv) when is_atom(Var) ->
-  case env_lookup(ScopeEnv, Var) of
+  case es_env:lookup(ScopeEnv, Var) of
     none ->
-      env_enter(ScopeEnv, Var, []);
+      es_env:enter(ScopeEnv, Var, []);
     _ ->
       erlang:throw({bad_var, Var})
   end.
@@ -190,14 +190,14 @@ parse_let(Tl, Env) ->
   case Tl of
     [Bindings, Body] ->
       {NewBindings, ScopeEnv} = parse_let_bindings(Bindings, Env),
-      {'ES:LET', NewBindings, parse(Body, env_overlay(Env, ScopeEnv))};
+      {'ES:LET', NewBindings, parse(Body, es_env:overlay(Env, ScopeEnv))};
     _ ->
       erlang:throw({bad_let, tl})
   end.
 
 parse_let_bindings(Bindings, Env) ->
   NewBindings = [parse_let_binding(Binding, Env) || Binding <- Bindings],
-  ScopeEnv = lists:foldl(fun bind_let/2, env_empty(), NewBindings),
+  ScopeEnv = lists:foldl(fun bind_let/2, es_env:empty(), NewBindings),
   {NewBindings, ScopeEnv}.
 
 parse_let_binding(Binding, Env) ->
@@ -221,16 +221,16 @@ parse_letrec(Tl, Env) ->
   end.
 
 parse_letrec_bindings(Bindings, Env) ->
-  ScopeEnv = lists:foldl(fun bind_letrec/2, env_empty(), Bindings),
-  NewEnv = env_overlay(Env, ScopeEnv),
+  ScopeEnv = lists:foldl(fun bind_letrec/2, es_env:empty(), Bindings),
+  NewEnv = es_env:overlay(Env, ScopeEnv),
   NewBindings = [parse_letrec_binding(Binding, NewEnv) || Binding <- Bindings],
   {NewBindings, NewEnv}.
 
 parse_letrec_binding(Binding, NewEnv) ->
   case Binding of
     [Var, ['lambda', Formals, Body]] when is_atom(Var) ->
-      ScopeEnv = parse_formals(Formals, env_empty()),
-      {Var, Formals, parse(Body, env_overlay(NewEnv, ScopeEnv))};
+      ScopeEnv = parse_formals(Formals, es_env:empty()),
+      {Var, Formals, parse(Body, es_env:overlay(NewEnv, ScopeEnv))};
     _ ->
       erlang:throw({bad_letrec_binding, Binding})
   end.
@@ -286,7 +286,7 @@ do_apply(FVal, Actuals) ->
       Fun(Actuals);
     {'ES:CLOSURE', Formals, Body, Env, RecEnv} ->
       RecEnv2 = unfold_recenv(RecEnv),
-      Env2 = env_overlay(Env, RecEnv2),
+      Env2 = es_env:overlay(Env, RecEnv2),
       Env3 = bind_formals(Formals, Actuals, Env2),
       interpret(Body, Env3)
   end.
@@ -294,9 +294,9 @@ do_apply(FVal, Actuals) ->
 bind_formals([], [], Env) ->
   Env;
 bind_formals([F|Fs], [A|As], Env) ->
-  bind_formals(Fs, As, env_enter(Env, F, A));
+  bind_formals(Fs, As, es_env:enter(Env, F, A));
 bind_formals(F, As, Env) when is_atom(F) -> % rest parameter
-  env_enter(Env, F, As).
+  es_env:enter(Env, F, As).
 
 interpret_define(Var, Expr, Env) ->
   %% This is restricted, by macro-expansion and parsing, to the top-level.
@@ -315,40 +315,42 @@ interpret_if(Pred, Then, Else, Env) ->
   interpret(case interpret(Pred, Env) of false -> Else; _ -> Then end, Env).
 
 interpret_lambda(Formals, Body, Env) ->
-  {'ES:CLOSURE', Formals, Body, Env, env_empty()}.
+  {'ES:CLOSURE', Formals, Body, Env, es_env:empty()}.
 
 interpret_let(Bindings, Body, Env) ->
-  interpret(Body, env_overlay(Env, interpret_let_bindings(Bindings, Env))).
+  interpret(Body, es_env:overlay(Env, interpret_let_bindings(Bindings, Env))).
 
 interpret_let_bindings(Bindings, Env) ->
   lists:foldl(fun (Binding, NestedEnv) ->
 		  interpret_let_binding(Binding, Env, NestedEnv)
 	      end,
-	      env_empty(), Bindings).
+	      es_env:empty(), Bindings).
 
 interpret_let_binding({Var, Expr}, Env, NestedEnv) ->
-  env_enter(NestedEnv, Var, interpret(Expr, Env)).
+  es_env:enter(NestedEnv, Var, interpret(Expr, Env)).
 
 interpret_letrec(Bindings, Body, Env) ->
-  interpret(Body, env_overlay(Env, interpret_letrec_bindings(Bindings, Env))).
+  interpret(Body, es_env:overlay(Env, interpret_letrec_bindings(Bindings, Env))).
 
 interpret_letrec_bindings(Bindings, Env) ->
   RecEnv2 = lists:foldl(fun (Binding, RecEnv1) ->
 			    interpret_letrec_binding(Binding, Env, RecEnv1)
 			end,
-			env_empty(), Bindings),
+			es_env:empty(), Bindings),
   unfold_recenv(RecEnv2).
 
 unfold_recenv(RecEnv) ->
-  env_map(RecEnv,
-	  fun(_Var, {'ES:CLOSURE', F, B, E, _}) -> {'ES:CLOSURE', F, B, E, RecEnv} end).
+  es_env:map(RecEnv,
+	     fun(_Var, {'ES:CLOSURE', F, B, E, _}) ->
+		 {'ES:CLOSURE', F, B, E, RecEnv}
+	     end).
 
 interpret_letrec_binding({Var, Formals, Body}, Env, RecEnv) ->
   %% initially Var gets bound to a closure with an empty RecEnv
-  env_enter(RecEnv, Var, interpret_lambda(Formals, Body, Env)).
+  es_env:enter(RecEnv, Var, interpret_lambda(Formals, Body, Env)).
 
 interpret_locvar(Var, Env) ->
-  env_get(Env, Var).
+  es_env:get(Env, Var).
 
 interpret_seq(First, Next, Env) ->
   interpret(First, Env),
@@ -356,22 +358,3 @@ interpret_seq(First, Next, Env) ->
 
 interpret_quote(Value) ->
   Value.
-
-%% Local Environment Utilities
-
-env_empty() -> gb_trees:empty().
-env_get(Env, Var) -> gb_trees:get(Var, Env).
-env_lookup(Env, Var) -> gb_trees:lookup(Var, Env).
-env_enter(Env, Var, Val) -> gb_trees:enter(Var, Val, Env).
-
-env_map(Env, Fn) -> gb_trees:map(Fn, Env).
-
-env_overlay(Env1, Env2) ->
-  env_overlay_iter(Env1, gb_trees:iterator(Env2)).
-env_overlay_iter(Env, Iter1) ->
-  case gb_trees:next(Iter1) of
-    none ->
-      Env;
-    {Var, Val, Iter2} ->
-      env_overlay_iter(gb_trees:enter(Var, Val, Env), Iter2)
-  end.
