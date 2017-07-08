@@ -23,18 +23,18 @@
 -export([init/0]).
 
 init() ->
-  define_var(':', fun ':'/1), % ErlScheme-specific hook into Erlang
-  define_var('*', fun '*'/1),
-  define_var('+', fun '+'/1),
-  define_var('eq?', fun 'eq?'/1),
-  define_var('memq', fun 'memq'/1),
+  define_var(':', fun ':'/2), % ErlScheme-specific hook into Erlang
+  define_var('*', fun '*'/1), % varargs
+  define_var('+', fun '+'/1), % varargs
+  define_var('eq?', fun 'eq?'/2),
+  define_var('memq', fun 'memq'/2),
   define_var('symbol?', fun 'symbol?'/1),
   define_var('zero?', fun 'zero?'/1),
   define_var('null?', fun 'null?'/1),
   define_var('pair?', fun 'pair?'/1),
   define_var('list?', fun 'list?'/1),
-  define_var('list', fun 'list'/1),
-  define_var('cons', fun 'cons'/1),
+  define_var('list', fun 'list'/1), % varargs
+  define_var('cons', fun 'cons'/2),
   define_var('car', fun 'car'/1),
   define_var('cdr', fun 'cdr'/1),
   define_var('caar', fun 'caar'/1),
@@ -44,72 +44,117 @@ init() ->
   define_var('cdddr', fun 'cdddr'/1),
   define_var('vector?', fun 'vector?'/1),
   define_var('eval', fun 'eval'/1),
-  define_var('getprop', fun 'getprop'/1),
-  define_var('putprop', fun 'putprop'/1),
+  define_var('getprop', fun 'getprop'/2),
+  define_var('putprop', fun 'putprop'/3),
   define_var('load', fun 'load'/1),
   ok.
 
 define_var(Name, Fun) ->
   es_gloenv:insert(Name, 'var', Fun).
 
-':'([M, F]) ->
-  fun (Args) ->
-      erlang:apply(M, F, Args)
+':'(M, F) ->
+  fun (Arg) -> % varargs
+      erlang:apply(M, F, get_varargs(Arg))
   end.
 
-'*'(Args) -> '*'(Args, 1).
+'*'(Arg) -> '*'(get_varargs(Arg), 1).
 '*'([], Acc) -> Acc;
 '*'([H | T], Acc) -> '*'(T, Acc * H).
 
-'+'(Args) -> '+'(Args, 0).
+'+'(Arg) -> '+'(get_varargs(Arg), 0).
 '+'([], Acc) -> Acc;
 '+'([H | T], Acc) -> '+'(T, Acc + H).
 
-'eq?'([X, Y]) -> X =:= Y.
+'eq?'(X, Y) -> X =:= Y.
 
-'memq'([X, L]) -> 'memq'(X, L).
 'memq'(X, L = [X | _]) -> L;
 'memq'(X, [_ | L]) -> 'memq'(X, L);
 'memq'(_, []) -> false.
 
-'symbol?'([X]) -> es_datum:is_symbol(X).
+'symbol?'(Arg) ->
+  X = get_onearg(Arg),
+  es_datum:is_symbol(X).
 
-'zero?'([X]) -> X == 0.
+'zero?'(Arg) ->
+  X = get_onearg(Arg),
+  X == 0.
 
-'null?'([X]) -> case X of [] -> true; _ -> false end.
+'null?'(Arg) ->
+  X = get_onearg(Arg),
+  case X of [] -> true; _ -> false end.
 
-'pair?'([X]) -> case X of [_ | _] -> true; _ -> false end.
+'pair?'(Arg) ->
+  X = get_onearg(Arg),
+  case X of [_ | _] -> true; _ -> false end.
 
-'list?'([X]) -> listp(X). % is_list/1 is taken :-(
+'list?'(Arg) ->
+  X = get_onearg(Arg),
+  listp(X). % is_list/1 is taken :-(
+
 %% Erlang has no circular lists, so we don't need the Hare-and-Tortoise algorithm.
 listp([_ | L]) -> listp(L);
 listp([]) -> true;
 listp(_) -> false.
 
-'list'(Args) -> Args.
+'list'(Arg) -> get_varargs(Arg).
 
-'cons'([X, Y]) -> [X | Y].
+'cons'(X, Y) -> [X | Y].
 
-'car'  ([[X | _]]) -> X.
-'cdr'  ([[_ | Y]]) -> Y.
-'caar' ([[[X | _] | _]]) -> X.
-'cadr' ([[_ , X | _]]) -> X.
-'cddr' ([[_ , _ | Y]]) -> Y.
-'caddr'([[_ , _ , X | _]]) -> X.
-'cdddr'([[_ , _ , _ | Y]]) -> Y.
+'car'(Arg) ->
+  [X | _] = get_onearg(Arg),
+  X.
 
-'vector?'([X]) -> es_datum:is_vector(X).
+'cdr'(Arg) ->
+  [_ | Y] = get_onearg(Arg),
+  Y.
 
-'eval'([X]) -> es_eval:primitive_eval(X).
+'caar'(Arg) ->
+  [[X | _] | _] = get_onearg(Arg),
+  X.
 
-'getprop'([Name, Tag]) ->
+'cadr'(Arg) ->
+  [_, X | _] = get_onearg(Arg),
+  X.
+
+'cddr'(Arg) ->
+  [_, _ | Y] = get_onearg(Arg),
+  Y.
+
+'caddr'(Arg) ->
+  [_, _, X | _] = get_onearg(Arg),
+  X.
+
+'cdddr'(Arg) ->
+  [_, _, _ | Y] = get_onearg(Arg),
+  Y.
+
+'vector?'(Arg) ->
+  X = get_onearg(Arg),
+  es_datum:is_vector(X).
+
+'eval'(Arg) ->
+  X = get_onearg(Arg),
+  es_eval:primitive_eval(X).
+
+'getprop'(Name, Tag) ->
   case es_gloenv:lookup(Name, Tag) of
     {value, Val} -> Val;
     none -> false
   end.
 
-'putprop'([Name, Tag, Val]) ->
+'putprop'(Name, Tag, Val) ->
   es_gloenv:insert(Name, Tag, Val).
 
-'load'([String]) ->
+'load'(Arg) ->
+  String = get_onearg(Arg),
   es_load:load(binary_to_list(es_datum:string_to_binary(String))).
+
+%% Parameter parsing helpers
+
+-define(argv, '$argv').
+
+get_onearg({?argv, _L}) -> error(badarity);
+get_onearg(X) -> X.
+
+get_varargs({?argv, L}) -> L;
+get_varargs(X) -> [X].
