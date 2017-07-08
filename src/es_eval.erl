@@ -70,14 +70,7 @@ interpret_call(Fun, Args, Env) ->
   do_apply(interpret(Fun, Env), [interpret(Arg, Env) || Arg <- Args]).
 
 do_apply(FVal, Actuals) ->
-  FVal(Actuals).
-
-bind_formals([], [], Env) ->
-  Env;
-bind_formals([F|Fs], [A|As], Env) ->
-  bind_formals(Fs, As, es_env:enter(Env, F, A));
-bind_formals(F, As, Env) when is_atom(F) -> % rest parameter
-  es_env:enter(Env, F, As).
+  es_apply:applyN(FVal, Actuals).
 
 interpret_define(Var, Expr, Env) ->
   %% This is restricted, by macro-expansion and parsing, to the top-level.
@@ -96,9 +89,19 @@ interpret_if(Pred, Then, Else, Env) ->
   interpret(case interpret(Pred, Env) of false -> Else; _ -> Then end, Env).
 
 interpret_lambda(Formals, Body, Env) ->
-  fun(Actuals) ->
+  %% This takes the easy route of treating every lambda as variadic.
+  %% Wrong-arity calls are caught by bind_formals/3.
+  fun (Arg) ->
+      Actuals = get_varargs(Arg),
       interpret(Body, bind_formals(Formals, Actuals, Env))
   end.
+
+bind_formals([], [], Env) ->
+  Env;
+bind_formals([F|Fs], [A|As], Env) ->
+  bind_formals(Fs, As, es_env:enter(Env, F, A));
+bind_formals(F, As, Env) when is_atom(F) -> % rest parameter
+  es_env:enter(Env, F, As).
 
 interpret_let(Bindings, Body, Env) ->
   interpret(Body, es_env:overlay(Env, interpret_let_bindings(Bindings, Env))).
@@ -124,8 +127,11 @@ interpret_letrec_bindings(Bindings, Env) ->
 
 unfold_recenv(RecEnv) ->
   es_env:map(RecEnv,
-	     fun(_Var, {Formals, Body, Env}) ->
-		 fun(Actuals) ->
+	     fun (_Var, {Formals, Body, Env}) ->
+		 %% This takes the easy route of treating every lambda as variadic.
+		 %% Wrong-arity calls are caught by bind_formals/3.
+		 fun (Arg) ->
+		     Actuals = get_varargs(Arg),
 		     RecEnv2 = unfold_recenv(RecEnv),
 		     Env2 = es_env:overlay(Env, RecEnv2),
 		     Env3 = bind_formals(Formals, Actuals, Env2),
@@ -145,3 +151,10 @@ interpret_seq(First, Next, Env) ->
 
 interpret_quote(Value) ->
   Value.
+
+%% Parameter parsing helpers
+
+-define(argv, '$argv').
+
+get_varargs({?argv, L}) -> L;
+get_varargs(X) -> [X].
