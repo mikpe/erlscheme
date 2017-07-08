@@ -82,9 +82,10 @@
 %%% corresponding type.  We represent them as our private handles
 %%% inside tagged tuples.
 %%%
-%%% procedure		Fun/1
+%%% procedure		Fun/N
 %%%
-%%% An ErlScheme procedure becomes an arity-1 Erlang function.
+%%% An Scheme procedure becomes an Erlang function of the same arity.
+%%% A variable-arity procedure becomes an Erlang function of arity 1.
 %%%
 %%% tid			pid
 %%%
