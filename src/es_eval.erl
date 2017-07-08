@@ -28,7 +28,7 @@
 
 -module(es_eval).
 
--export([dynamic_eval/1, primitive_eval/1]).
+-export([dynamic_eval/1, primitive_eval/1, do_apply/2]).
 
 %%
 

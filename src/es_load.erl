@@ -20,7 +20,7 @@
 
 -module(es_load).
 
--export([load/1]).
+-export([load/1, expand_and_parse/1]).
 
 load(FileName) ->
   load(fun do_eval/2, [], FileName),
@@ -28,6 +28,14 @@ load(FileName) ->
 
 do_eval(Datum, _Acc) ->
   es_eval:dynamic_eval(Datum).
+
+expand_and_parse(FileName) ->
+  lists:reverse(load(fun do_expand_and_parse/2, [], FileName)).
+
+do_expand_and_parse(Datum, Acc) ->
+  {value, Fun} = es_gloenv:lookup('%expand-macros', 'var'),
+  Sexpr = es_eval:do_apply(Fun, [Datum]),
+  [es_parse:toplevel(Sexpr) | Acc].
 
 load(Fun, Acc, FileName) ->
   OldPrefix = erlang:get('es_load_prefix'),
