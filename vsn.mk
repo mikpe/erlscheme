@@ -1,4 +1,4 @@
-#   Copyright 2014 Mikael Pettersson
+#   Copyright 2014-2017 Mikael Pettersson
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -14,4 +14,4 @@
 #
 # VSN definition for ErlScheme
 
-VSN = 0.3-devel
+VSN = 0.3
