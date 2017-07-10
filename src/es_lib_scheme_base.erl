@@ -50,7 +50,7 @@ init() ->
   ok.
 
 define_var(Name, Fun) ->
-  es_gloenv:insert(Name, 'var', Fun).
+  es_gloenv:enter_var(Name, Fun).
 
 ':'(M, F) ->
   fun (Arg) -> % varargs

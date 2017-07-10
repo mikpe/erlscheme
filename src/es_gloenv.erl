@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014 Mikael Pettersson
+%%%   Copyright 2014-2017 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@
 
 -export([init/0,
 	 destroy/0,
+	 get_var/1,
+	 enter_var/2,
 	 lookup/2,
 	 insert/3]).
 
@@ -62,6 +64,16 @@ destroy() ->
     undefined ->
       ok
   end.
+
+-define(tag_var, '%var').
+
+get_var(Name) ->
+  case lookup(Name, ?tag_var) of
+    {value, Value} -> Value;
+    none -> throw({unbound_variable, Name})
+  end.
+
+enter_var(Name, Value) -> insert(Name, ?tag_var, Value).
 
 lookup(Name, Tag) ->
   try

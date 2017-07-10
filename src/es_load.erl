@@ -33,7 +33,7 @@ expand_and_parse(FileName) ->
   lists:reverse(load(fun do_expand_and_parse/2, [], FileName)).
 
 do_expand_and_parse(Datum, Acc) ->
-  {value, Fun} = es_gloenv:lookup('%expand-macros', 'var'),
+  Fun = es_gloenv:get_var('%expand-macros'),
   Sexpr = es_eval:do_apply(Fun, [Datum]),
   [es_parse:toplevel(Sexpr) | Acc].
 

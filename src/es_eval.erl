@@ -33,9 +33,7 @@
 %%
 
 dynamic_eval(Sexpr) ->
-  case es_gloenv:lookup('eval', 'var') of
-    {value, Val} -> do_apply(Val, [Sexpr])
-  end.
+  do_apply(es_gloenv:get_var('eval'), [Sexpr]).
 
 primitive_eval(Sexpr) ->
   interpret(es_parse:toplevel(Sexpr), es_env:empty()).
@@ -75,15 +73,10 @@ do_apply(FVal, Actuals) ->
 interpret_define(Var, Expr, Env) ->
   %% This is restricted, by macro-expansion and parsing, to the top-level.
   %% XXX: ensure we return a valid Scheme datum here
-  es_gloenv:insert(Var, 'var', interpret(Expr, Env)).
+  es_gloenv:enter_var(Var, interpret(Expr, Env)).
 
 interpret_glovar(Var) ->
-  case es_gloenv:lookup(Var, 'var') of
-    {value, Value} ->
-      Value;
-    none ->
-      erlang:throw({unbound_variable, Var})
-  end.
+  es_gloenv:get_var(Var).
 
 interpret_if(Pred, Then, Else, Env) ->
   interpret(case interpret(Pred, Env) of false -> Else; _ -> Then end, Env).
