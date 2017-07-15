@@ -146,8 +146,7 @@ listp(_) -> false.
   es_gloenv:insert(Name, Tag, Val).
 
 'load'(Arg) ->
-  String = get_onearg(Arg),
-  es_load:load(binary_to_list(es_datum:string_to_binary(String))).
+  es_load:load(get_onearg(Arg)).
 
 %% Parameter parsing helpers
 

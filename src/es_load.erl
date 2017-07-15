@@ -22,9 +22,13 @@
 
 -export([load/1, expand_and_parse/1]).
 
-load(FileName) ->
-  load(fun do_eval/2, [], FileName),
-  true.
+load(Name) ->
+  case es_datum:is_string(Name) of
+    true -> % (load "Name.scm")
+      FileName = binary_to_list(es_datum:string_to_binary(Name)),
+      load(fun do_eval/2, [], FileName),
+      true
+  end.
 
 do_eval(Datum, _Acc) ->
   es_eval:dynamic_eval(Datum).

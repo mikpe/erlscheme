@@ -47,7 +47,7 @@ es_load_init() ->
   io:format("Loading es_init.scm ..."),
   {ok, ScmPrefix} = es_path:lib_dir("scm"),
   erlang:put('es_load_prefix', ScmPrefix),
-  es_load:load("es-init.scm"),
+  es_load:load(es_datum:binary_to_string(<<"es-init.scm">>)),
   io:format(" done~n").
 
 repl(N, LI) ->
