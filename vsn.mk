@@ -14,4 +14,4 @@
 #
 # VSN definition for ErlScheme
 
-VSN = 0.4
+VSN = 0.5-devel
