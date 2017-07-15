@@ -25,10 +25,35 @@
 load(Name) ->
   case es_datum:is_string(Name) of
     true -> % (load "Name.scm")
-      FileName = binary_to_list(es_datum:string_to_binary(Name)),
-      load(fun do_eval/2, [], FileName),
+      load_file(Name);
+    false -> % (load 'Name)
+      true = es_datum:is_symbol(Name),
+      load_module(Name)
+  end.
+
+load_module(Name) ->
+  case is_loaded(Name) of
+    true ->
+      true;
+    false ->
+      Name:'$es_init'(),
+      set_is_loaded(Name),
       true
   end.
+
+is_loaded(Name) ->
+  case es_gloenv:lookup(Name, '%loaded') of
+    {value, 'true'} -> true;
+    _ -> false
+  end.
+
+set_is_loaded(Name) ->
+  es_gloenv:insert(Name, '%loaded', true).
+
+load_file(String) ->
+  FileName = binary_to_list(es_datum:string_to_binary(String)),
+  load(fun do_eval/2, [], FileName),
+  true.
 
 do_eval(Datum, _Acc) ->
   es_eval:dynamic_eval(Datum).

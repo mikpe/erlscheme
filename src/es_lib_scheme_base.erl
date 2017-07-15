@@ -47,6 +47,7 @@ init() ->
   define_var('getprop', fun 'getprop'/2),
   define_var('putprop', fun 'putprop'/3),
   define_var('load', fun 'load'/1),
+  define_var('compile', fun 'compile'/1),
   ok.
 
 define_var(Name, Fun) ->
@@ -147,6 +148,9 @@ listp(_) -> false.
 
 'load'(Arg) ->
   es_load:load(get_onearg(Arg)).
+
+'compile'(Arg) ->
+  es_compile:file(get_onearg(Arg)).
 
 %% Parameter parsing helpers
 

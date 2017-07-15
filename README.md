@@ -58,7 +58,6 @@ Omissions:
 - The macro / syntax system is old-fashioned and primitive.
 
 Planned extensions:
-- Compiler from ErlScheme to Erlang or Core Erlang, and then to .beam object files.
 - Write more of the system in ErlScheme itself.
 - Common Lisp like package namespaces for symbols.
 - Standard ML like "ref" datatype for singleton mutable cells with an explicit
