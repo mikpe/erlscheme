@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2017 Mikael Pettersson
+%%%   Copyright 2014-2022 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -37,9 +37,9 @@ init() ->
     P = es_raw_port:open_stdin(),
     es_lexinput:open(P, "<stdin>")
   catch
-    Class:Reason ->
+    Class:Reason:Stack ->
       io:format("ErlScheme: fatal error ~p:~p during startup~n~p~n",
-		[Class, Reason, erlang:get_stacktrace()]),
+		[Class, Reason, Stack]),
       false
   end.
 
@@ -59,7 +59,7 @@ repl(N, LI) ->
     es_print:display(Term),
     io:format("~n")
   catch
-    Class:Reason ->
-      io:format("caught ~p:~p~n~p~n", [Class, Reason, erlang:get_stacktrace()])
+    Class:Reason:Stack ->
+      io:format("caught ~p:~p~n~p~n", [Class, Reason, Stack])
   end,
   repl(N + 1, LI).
