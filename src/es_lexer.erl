@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014 Mikael Pettersson
+%%%   Copyright 2014-2022 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -122,7 +122,7 @@ string_to_number(String, Radix) ->
 
 scan_hash(LI) ->
   Ch = es_lexinput:peek_char(LI),
-  case es_ctype:char_upcase(Ch) of
+  case scan_hash_norm(Ch) of
     $\\ ->
       es_lexinput:read_char(LI),
       scan_character(LI);
@@ -147,6 +147,13 @@ scan_hash(LI) ->
 	false ->
 	  erlang:throw(invalid_number)
       end
+  end.
+
+scan_hash_norm(Ch) -> % normalize case of relevant characters
+  case Ch of
+    $t -> $T;
+    $f -> $F;
+    _  -> Ch
   end.
 
 scan_boolean(LI, Ch) ->
@@ -533,7 +540,7 @@ number_q0(LI, Radix) ->
 
 number_q1(LI, Radix) -> % after "#"
   Ch = es_lexinput:peek_char(LI),
-  case es_ctype:char_upcase(Ch) of
+  case number_q1_norm(Ch) of
     $B ->
       es_lexinput:read_char(LI),
       number_q2(LI, 2);
@@ -554,6 +561,17 @@ number_q1(LI, Radix) -> % after "#"
       number_q4(LI, Radix, true);
     _ ->
       false
+  end.
+
+number_q1_norm(Ch) -> % normalize case of relevant characters
+  case Ch of
+    $b -> $B;
+    $o -> $O;
+    $d -> $D;
+    $x -> $X;
+    $e -> $E;
+    $i -> $I;
+    _  -> Ch
   end.
 
 number_q2(LI, Radix) -> % after "#{B,O,D,X}"
@@ -579,7 +597,7 @@ number_q2(LI, Radix) -> % after "#{B,O,D,X}"
 
 number_q3(LI, Radix) -> % after "#{B,O,D,X}#"
   Ch = es_lexinput:peek_char(LI),
-  case es_ctype:char_update(Ch) of
+  case number_q3_norm(Ch) of
     $E ->
       es_lexinput:read_char(LI),
       choose_decimal_q0_or_integer_q0(LI, Radix, false);
@@ -588,6 +606,13 @@ number_q3(LI, Radix) -> % after "#{B,O,D,X}#"
       choose_decimal_q0_or_integer_q0(LI, Radix, true);
     _ ->
       false
+  end.
+
+number_q3_norm(Ch) -> % normalize case of relevant characters
+  case Ch of
+    $e -> $E;
+    $i -> $I;
+    _  -> Ch
   end.
 
 number_q4(LI, Radix, IsInexact) -> % after "#{E,I}"
@@ -613,7 +638,7 @@ number_q4(LI, Radix, IsInexact) -> % after "#{E,I}"
 
 number_q5(LI, IsInexact) -> % after "#{E,I}#"
   Ch = es_lexinput:peek_char(LI),
-  case es_ctype:char_upcase(Ch) of
+  case number_q5_norm(Ch) of
     $B ->
       es_lexinput:read_char(LI),
       integer_q0(LI, 2, IsInexact);
@@ -628,6 +653,15 @@ number_q5(LI, IsInexact) -> % after "#{E,I}#"
       decimal_q0(LI, IsInexact);
     _ ->
       false
+  end.
+
+number_q5_norm(Ch) -> % normalize case of relevant characters
+  case Ch of
+    $b -> $B;
+    $o -> $O;
+    $x -> $X;
+    $d -> $D;
+    _  -> Ch
   end.
 
 choose_decimal_q0_or_integer_q0(LI, Radix, IsInexact) -> % after "#[BODX]#[EI]"
