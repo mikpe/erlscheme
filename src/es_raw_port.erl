@@ -38,10 +38,6 @@
 	 open_input_string/1,
 	 open_stdin/0]).
 
--export([write_char/2,
-	 close_output_port/1,
-	 open_stdout/0]).
-
 command(Pid, Cmd) ->
   MonRef = erlang:monitor('process', Pid),
   Pid ! {self(), Cmd},
@@ -209,51 +205,3 @@ stdin_peek_char(State) ->
     [Ch | _] ->
       {{ok, Ch}, State}
   end.
-
-%% Generic output port infrastructure
-
--record(output_port_fns,
-	{close,
-	 write_char}).
-
-handle_output_port(State0, Fns) ->
-  receive
-    {Pid, Cmd} when is_pid(Pid) ->
-      case Cmd of
-	{'write_char', Ch} ->
-	  {R, State1} = (Fns#output_port_fns.write_char)(State0, Ch),
-	  Pid ! {self(), R},
-	  handle_output_port(State1, Fns);
-	'close' ->
-	  R = (Fns#output_port_fns.close)(State0),
-	  Pid ! {self(), R};
-	_ ->
-	  R = {error, Cmd},
-	  Pid ! {self(), R},
-	  handle_output_port(State0, Fns)
-      end;
-    _ ->
-      handle_output_port(State0, Fns)
-  end.
-
-open_output_port(State, Fns) ->
-  spawn(fun () -> handle_output_port(State, Fns) end).
-
-write_char(Pid, Ch) ->
-  command(Pid, {'write_char', Ch}).
-
-close_output_port(Pid) ->
-  command(Pid, 'close').
-
-%% Standard output port
-
-open_stdout() ->
-  State = [],
-  Fns = #output_port_fns
-    {close = fun ktrue/1,
-     write_char = fun stdout_write_char/2},
-  open_output_port(State, Fns).
-
-stdout_write_char(State, Ch) ->
-  io:put_chars(standard_io, [Ch]),
-  {{ok, true}, State}.
