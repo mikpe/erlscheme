@@ -30,120 +30,186 @@
 %%% - binary-port stuff
 
 -module(es_raw_port).
+-behaviour(gen_server).
 
--export([read_char/1,
-	 peek_char/1,
-	 close_input_port/1,
-	 open_input_file/1,
-	 open_input_string/1,
-	 open_stdin/0]).
+%% API
+-export([ close_input_port/1
+        , open_input_file/1
+        , open_input_string/1
+        , open_stdin/0
+        , peek_char/1
+        , read_char/1
+        ]).
 
-command(Pid, Cmd) ->
-  MonRef = erlang:monitor('process', Pid),
-  Pid ! {self(), Cmd},
-  Res =
-    receive
-      {Pid, X} ->
-	erlang:demonitor(MonRef, ['flush']),
-	X;
-      {'DOWN', MonRef, 'process', Pid, _} ->
-	{error, noproc}
-    end,
-  {ok, Val} = Res, % deliberately throws in case of error
-  Val.
+%% gen_server callbacks
+-export([ init/1
+        , handle_call/3
+        , handle_cast/2
+        , handle_info/2
+        , terminate/2
+        , code_change/3
+        ]).
 
-ktrue(_) -> {ok, true}.
+-type es_port() :: pid().
 
-%% Generic input port infrastructure
+%% commands
+-define(close, close).
+-define(file, file).
+-define(peek_char, peek_char).
+-define(read_char, read_char).
+-define(stdin, stdin).
+-define(string, string).
 
--record(input_port_fns,
-	{close,
-	 read_char,
-	 peek_char}).
+%% API -------------------------------------------------------------------------
 
-handle_input_port(State0, Fns) ->
-  receive
-    {Pid, Cmd} when is_pid(Pid), is_atom(Cmd) ->
-      case Cmd of
-	'read_char' ->
-	  {R, State1} = (Fns#input_port_fns.read_char)(State0),
-	  Pid ! {self(), R},
-	  handle_input_port(State1, Fns);
-	'peek_char' ->
-	  {R, State1} = (Fns#input_port_fns.peek_char)(State0),
-	  Pid ! {self(), R},
-	  handle_input_port(State1, Fns);
-	'close' ->
-	  R = (Fns#input_port_fns.close)(State0),
-	  Pid ! {self(), R};
-	_ ->
-	  R = {error, Cmd},
-	  Pid ! {self(), R},
-	  handle_input_port(State0, Fns)
-      end;
-    _ ->
-      handle_input_port(State0, Fns)
-  end.
-
-open_input_port(State, Fns) ->
-  spawn(fun () -> handle_input_port(State, Fns) end).
-
-read_char(Pid) ->
-  command(Pid, 'read_char').
-
-peek_char(Pid) ->
-  command(Pid, 'peek_char').
-
+-spec close_input_port(es_port()) -> ok.
 close_input_port(Pid) ->
-  command(Pid, 'close').
+  call(Pid, ?close).
 
-%% String input ports
+-spec open_input_file(string()) -> es_port().
+open_input_file(Path) ->
+  open_input({?file, Path}).
 
-open_input_string(S) ->
-  State = {list_to_binary(S), 0},
-  Fns = #input_port_fns
-    {close = fun ktrue/1,
-     read_char = fun input_string_read_char/1,
-     peek_char = fun input_string_peek_char/1},
-  open_input_port(State, Fns).
+-spec open_input_string(string()) -> es_port().
+open_input_string(String) ->
+  open_input({?string, String}).
 
-input_string_read_char(S = {B, I}) ->
-  if I < size(B) ->
-      V = binary:at(B, I),
-      S2 = {B, I + 1},
-      {{ok, V}, S2};
-     true ->
-      V = -1,
-      {{ok, V}, S}
+-spec open_stdin() -> es_port().
+open_stdin() ->
+  open_input(?stdin).
+
+-spec peek_char(es_port()) -> integer().
+peek_char(Pid) ->
+  call(Pid, ?peek_char).
+
+-spec read_char(es_port()) -> integer().
+read_char(Pid) ->
+  call(Pid, ?read_char).
+
+%% API Internals ---------------------------------------------------------------
+
+call(Pid, Cmd) ->
+  %% deliberately throw in case of error
+  {ok, Res} = gen_server:call(Pid, Cmd, 'infinity'),
+  Res.
+
+open_input(Arg) ->
+  %% deliberately throw in case of error
+  {ok, Pid} = gen_server:start(?MODULE, Arg, []),
+  Pid.
+
+%% gen_server callbacks --------------------------------------------------------
+
+-record(input_port_funs,
+        { close
+        , peek_char
+        , read_char
+        }).
+
+-record(server_state,
+        { funs :: #input_port_funs{}
+        , state :: any()
+        }).
+
+init(Arg) ->
+  InitRes =
+    case Arg of
+      {?file, Path} -> do_open_input_file(Path);
+      {?string, String} -> do_open_input_string(String);
+      ?stdin -> do_open_stdin()
+    end,
+  case InitRes of
+    {ok, _ServerState = #server_state{}} ->
+      InitRes;
+    {error, Reason} ->
+      %% The {shutdown, ...} wrapper prevents an unwanted crash report.
+      {stop, {shutdown, Reason}}
   end.
 
-input_string_peek_char(S = {B, I}) ->
-  V = if I < size(B) ->
-	  binary:at(B, I);
-	 true ->
-	  -1
-      end,
-  {{ok, V}, S}.
+handle_call(Req, _From, State) ->
+  case Req of
+    ?close ->
+      Result = handle_close(State),
+      {stop, normal, Result, []};
+    ?peek_char ->
+      {Result, NewState} = handle_peek_char(State),
+      {reply, Result, NewState};
+    ?read_char ->
+      {Result, NewState} = handle_read_char(State),
+      {reply, Result, NewState};
+    _ ->
+      {reply, {error, {bad_call, Req}}, State}
+  end.
 
-%% File input ports
+handle_cast(_Req, State) ->
+  {noreply, State}.
 
-open_input_file(Path) ->
-  %% We MUST call file:open/2 from within the wrapper process,
-  %% so this open-codes open_input_port/2.  A positive consequence
-  %% is that we then may open the file in 'raw' mode.
-  P = spawn(fun () -> do_open_input_file(Path) end),
-  %% Verify that the open succeeded.
-  _ = peek_char(P),
-  P.
+handle_info(_Info, State) ->
+  {noreply, State}.
+
+terminate(_Reason, _State = []) -> % terminating due to explicit close
+  ok;
+terminate(_Reason, State) ->
+  _ = handle_close(State),
+  ok.
+
+code_change(_OldVsn, State, _Extra) ->
+  {ok, State}.
+
+%% gen_server internals --------------------------------------------------------
+
+handle_close(#server_state{funs = Funs, state = State}) ->
+  (Funs#input_port_funs.close)(State).
+
+handle_peek_char(ServerState = #server_state{funs = Funs, state = State}) ->
+  {Result, NewState} = (Funs#input_port_funs.peek_char)(State),
+  {Result, ServerState#server_state{state = NewState}}.
+
+handle_read_char(ServerState = #server_state{funs = Funs, state = State}) ->
+  {Result, NewState} = (Funs#input_port_funs.read_char)(State),
+  {Result, ServerState#server_state{state = NewState}}.
+
+%% String input ports ----------------------------------------------------------
+
+do_open_input_string(String) ->
+  Funs =
+    #input_port_funs
+      { close = fun noop_close/1
+      , peek_char = fun input_string_peek_char/1
+      , read_char = fun input_string_read_char/1
+      },
+  {ok, #server_state{funs = Funs, state = String}}.
+
+noop_close(_) ->
+  {ok, true}.
+
+input_string_peek_char([C | _] = State) ->
+  {{ok, C}, State};
+input_string_peek_char([] = _State) ->
+  {{ok, -1}, []}.
+
+input_string_read_char([C | State]) ->
+  {{ok, C}, State};
+input_string_read_char([] = _State) ->
+  {{ok, -1}, []}.
+
+%% File input ports ------------------------------------------------------------
 
 do_open_input_file(Path) ->
-  {ok, IoDev} = file:open(Path, [read, raw, read_ahead]),
-  State = {[], IoDev},
-  Fns = #input_port_fns
-    {close = fun input_file_close/1,
-     read_char = fun input_file_read_char/1,
-     peek_char = fun input_file_peek_char/1},
-  handle_input_port(State, Fns).
+  %% We MUST call file:open/2 from within the gen_server.
+  %% A positive consequence is that we can open the file in 'raw' mode.
+  case file:open(Path, [read, raw, read_ahead]) of
+    {ok, IoDev} ->
+      Funs =
+        #input_port_funs
+          { close = fun input_file_close/1
+          , peek_char = fun input_file_peek_char/1
+          , read_char = fun input_file_read_char/1
+          },
+      {ok, #server_state{funs = Funs, state = {[], IoDev}}};
+    {error, _Reason} = Error ->
+       Error
+  end.
 
 input_file_close({_, IoDev}) ->
   case file:close(IoDev) of
@@ -151,57 +217,65 @@ input_file_close({_, IoDev}) ->
     Error -> Error
   end.
 
-input_file_read_char({Buf, IoDev}) ->
-  case Buf of
-    [] ->
-      case file:read(IoDev, 1) of
-	{ok, [Ch | Rest]} -> {{ok, Ch}, {Rest, IoDev}};
-	eof -> {{ok, -1}, {[], IoDev}}
-      end;
-    [Ch | Rest] ->
-      {{ok, Ch}, {Rest, IoDev}}
-  end.
-
 input_file_peek_char(State = {Buf, IoDev}) ->
   case Buf of
     [] ->
       case file:read(IoDev, 1) of
-	{ok, Line = [Ch | _]} -> {{ok, Ch}, {Line, IoDev}};
-	eof -> {{ok, -1}, {[], IoDev}}
+        {ok, Line = [Ch | _]} ->
+          {{ok, Ch}, {Line, IoDev}};
+        eof ->
+          {{ok, -1}, {[], IoDev}}
       end;
     [Ch | _] ->
       {{ok, Ch}, State}
   end.
 
-%% Standard input port
-
-open_stdin() ->
-  State = [],
-  Fns = #input_port_fns
-    {close = fun ktrue/1,
-     read_char = fun stdin_read_char/1,
-     peek_char = fun stdin_peek_char/1},
-  open_input_port(State, Fns).
-
-stdin_read_char(State) ->
-  case State of
+input_file_read_char({Buf, IoDev}) ->
+  case Buf of
     [] ->
-      case io:get_line(standard_io, []) of
-	[Ch | Rest] -> {{ok, Ch}, Rest};
-	eof -> {{ok, -1}, []}
+      case file:read(IoDev, 1) of
+        {ok, [Ch | Rest]} ->
+          {{ok, Ch}, {Rest, IoDev}};
+        eof ->
+         {{ok, -1}, {[], IoDev}}
       end;
     [Ch | Rest] ->
-      {{ok, Ch}, Rest}
+      {{ok, Ch}, {Rest, IoDev}}
   end.
+
+%% Standard input port ---------------------------------------------------------
+
+do_open_stdin() ->
+  Funs = #input_port_funs
+    { close = fun noop_close/1
+    , peek_char = fun stdin_peek_char/1
+    , read_char = fun stdin_read_char/1
+    },
+  {ok, #server_state{funs = Funs, state = []}}.
 
 stdin_peek_char(State) ->
   case State of
     [] ->
       Line = io:get_line(standard_io, []),
       case Line of
-	[Ch | _] -> {{ok, Ch}, Line};
-	eof -> {{ok, -1}, []}
+        [Ch | _] ->
+          {{ok, Ch}, Line};
+        eof ->
+          {{ok, -1}, []}
       end;
     [Ch | _] ->
       {{ok, Ch}, State}
+  end.
+
+stdin_read_char(State) ->
+  case State of
+    [] ->
+      case io:get_line(standard_io, []) of
+        [Ch | Rest] ->
+          {{ok, Ch}, Rest};
+        eof ->
+          {{ok, -1}, []}
+      end;
+    [Ch | Rest] ->
+      {{ok, Ch}, Rest}
   end.
