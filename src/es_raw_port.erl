@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014 Mikael Pettersson
+%%%   Copyright 2014-2022 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@
 
 -export([read_char/1,
 	 peek_char/1,
-	 is_char_ready/1,
 	 close_input_port/1,
 	 open_input_file/1,
 	 open_input_string/1,
@@ -64,8 +63,7 @@ ktrue(_) -> {ok, true}.
 -record(input_port_fns,
 	{close,
 	 read_char,
-	 peek_char,
-	 is_char_ready}).
+	 peek_char}).
 
 handle_input_port(State0, Fns) ->
   receive
@@ -79,10 +77,6 @@ handle_input_port(State0, Fns) ->
 	  {R, State1} = (Fns#input_port_fns.peek_char)(State0),
 	  Pid ! {self(), R},
 	  handle_input_port(State1, Fns);
-	'is_char_ready' ->
-	  R = (Fns#input_port_fns.is_char_ready)(State0),
-	  Pid ! {self(), R},
-	  handle_input_port(State0, Fns);
 	'close' ->
 	  R = (Fns#input_port_fns.close)(State0),
 	  Pid ! {self(), R};
@@ -104,9 +98,6 @@ read_char(Pid) ->
 peek_char(Pid) ->
   command(Pid, 'peek_char').
 
-is_char_ready(Pid) ->
-  command(Pid, 'is_char_ready').
-
 close_input_port(Pid) ->
   command(Pid, 'close').
 
@@ -117,8 +108,7 @@ open_input_string(S) ->
   Fns = #input_port_fns
     {close = fun ktrue/1,
      read_char = fun input_string_read_char/1,
-     peek_char = fun input_string_peek_char/1,
-     is_char_ready = fun ktrue/1},
+     peek_char = fun input_string_peek_char/1},
   open_input_port(State, Fns).
 
 input_string_read_char(S = {B, I}) ->
@@ -147,7 +137,7 @@ open_input_file(Path) ->
   %% is that we then may open the file in 'raw' mode.
   P = spawn(fun () -> do_open_input_file(Path) end),
   %% Verify that the open succeeded.
-  is_char_ready(P),
+  _ = peek_char(P),
   P.
 
 do_open_input_file(Path) ->
@@ -156,8 +146,7 @@ do_open_input_file(Path) ->
   Fns = #input_port_fns
     {close = fun input_file_close/1,
      read_char = fun input_file_read_char/1,
-     peek_char = fun input_file_peek_char/1,
-     is_char_ready = fun input_file_is_char_ready/1},
+     peek_char = fun input_file_peek_char/1},
   handle_input_port(State, Fns).
 
 input_file_close({_, IoDev}) ->
@@ -188,12 +177,6 @@ input_file_peek_char(State = {Buf, IoDev}) ->
       {{ok, Ch}, State}
   end.
 
-input_file_is_char_ready({Buf, _}) ->
-  case Buf of
-    [] -> {ok, false}; % alas, file: doesn't support non-blocking peeks
-    [_|_] -> {ok, true}
-  end.
-
 %% Standard input port
 
 open_stdin() ->
@@ -201,8 +184,7 @@ open_stdin() ->
   Fns = #input_port_fns
     {close = fun ktrue/1,
      read_char = fun stdin_read_char/1,
-     peek_char = fun stdin_peek_char/1,
-     is_char_ready = fun stdin_is_char_ready/1},
+     peek_char = fun stdin_peek_char/1},
   open_input_port(State, Fns).
 
 stdin_read_char(State) ->
@@ -226,12 +208,6 @@ stdin_peek_char(State) ->
       end;
     [Ch | _] ->
       {{ok, Ch}, State}
-  end.
-
-stdin_is_char_ready(State) ->
-  case State of
-    [] -> {ok, false}; % alas, io: doesn't support non-blocking peeks
-    _Ch -> {ok, true}
   end.
 
 %% Generic output port infrastructure
