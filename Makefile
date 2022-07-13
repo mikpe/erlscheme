@@ -1,4 +1,4 @@
-#   Copyright 2014 Mikael Pettersson
+#   Copyright 2014-2022 Mikael Pettersson
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 #
 # Makefile for ErlScheme
 
-include vsn.mk
+VSN := $(shell git describe --dirty)
 
 prefix=/usr/local
 exec_prefix=$(prefix)
