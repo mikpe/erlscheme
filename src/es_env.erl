@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2017 Mikael Pettersson
+%%%   Copyright 2014-2022 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -20,21 +20,39 @@
 
 -module(es_env).
 
--export([empty/0, enter/3, get/2, lookup/2, map/2, overlay/2]).
+-export([ empty/0
+        , enter/3
+        , get/2
+        , lookup/2
+        , map/2
+        , overlay/2
+        ]).
 
-empty() -> gb_trees:empty().
-get(Env, Var) -> gb_trees:get(Var, Env).
-lookup(Env, Var) -> gb_trees:lookup(Var, Env).
-enter(Env, Var, Val) -> gb_trees:enter(Var, Val, Env).
+-type env() :: map().
 
-map(Env, Fn) -> gb_trees:map(Fn, Env).
+-spec empty() -> env().
+empty() ->
+  maps:new().
 
-overlay(Env1, Env2) ->
-  overlay_iter(Env1, gb_trees:iterator(Env2)).
-overlay_iter(Env, Iter1) ->
-  case gb_trees:next(Iter1) of
-    none ->
-      Env;
-    {Var, Val, Iter2} ->
-      overlay_iter(gb_trees:enter(Var, Val, Env), Iter2)
+-spec get(env(), any()) -> any().
+get(Env, Var) ->
+  maps:get(Var, Env).
+
+-spec enter(env(), any(), any()) -> env().
+enter(Env, Var, Val) ->
+  maps:put(Var, Val, Env).
+
+-spec lookup(env(), any()) -> none | {value, any()}.
+lookup(Env, Var) ->
+  case maps:is_key(Var, Env) of
+    true -> {value, maps:get(Var, Env)};
+    false -> none
   end.
+
+-spec map(env(), fun((any(), any()) -> any())) -> env().
+map(Env, Fn) ->
+  maps:map(Fn, Env).
+
+-spec overlay(env(), env()) -> env().
+overlay(Env1, Env2) ->
+  maps:merge(Env1, Env2).
