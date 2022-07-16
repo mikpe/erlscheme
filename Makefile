@@ -14,7 +14,10 @@
 #
 # Makefile for ErlScheme
 
-VSN := $(shell git describe --dirty)
+SHELL := $(shell command -v bash)
+REBAR3 := $(shell type -p rebar3 || echo ./rebar3)
+REBAR3_GIT = https://github.com/erlang/rebar3.git
+REBAR3_VSN = 3.19.0
 
 prefix=/usr/local
 exec_prefix=$(prefix)
@@ -24,28 +27,15 @@ datadir=$(datarootdir)
 docdir=$(datarootdir)/doc/erlscheme-$(VSN)
 srcdir=.
 
-SHELL = /bin/sh
-ERLC = erlc
-ERLC_FLAGS = +debug_info +warn_obsolete_guard +warn_export_all -DVSN=\"$(VSN)\"
-EBIN_DIR = ebin
-SRC_DIR = src
+EBIN_DIR = _build/default/lib/erlscheme/ebin
 SCM_DIR = scm
 BIN_DIR = bin
 
-ERL_SOURCES := $(wildcard $(SRC_DIR)/*.erl)
-ERL_OBJECTS := $(patsubst $(SRC_DIR)/%.erl, $(EBIN_DIR)/%.beam, $(ERL_SOURCES))
+all:	compile $(BIN_DIR)/erlscheme
 
-.SUFFIXES: .erl .beam
-
-all:	$(ERL_OBJECTS) $(BIN_DIR)/erlscheme
-
-$(ERL_OBJECTS): | $(EBIN_DIR)
-
-$(EBIN_DIR):
-	mkdir -p $(EBIN_DIR)
-
-$(EBIN_DIR)/%.beam: $(SRC_DIR)/%.erl
-	$(ERLC) $(ERLC_FLAGS) -o $(EBIN_DIR) $<
+# TODO: add xref and dialyzer
+compile: $(REBAR3)
+	$(REBAR3) do compile, eunit
 
 $(BIN_DIR)/erlscheme:
 	mkdir -p $(BIN_DIR)
@@ -53,7 +43,7 @@ $(BIN_DIR)/erlscheme:
 	echo "exec /usr/bin/env erl -pa $(EBIN_DIR) -noshell -s es_repl start -s erlang halt" >> $(BIN_DIR)/erlscheme
 	chmod +x $(BIN_DIR)/erlscheme
 
-install:	$(ERL_OBJECTS) $(BIN_DIR)/erlscheme
+install:	compile $(BIN_DIR)/erlscheme
 	: install .beam files for compiled .erl or .scm code
 	mkdir -p $(DESTDIR)$(datadir)/erlscheme/ebin
 	cp $(EBIN_DIR)/*.beam $(DESTDIR)$(datadir)/erlscheme/ebin
@@ -66,4 +56,15 @@ install:	$(ERL_OBJECTS) $(BIN_DIR)/erlscheme
 	chmod +x $(DESTDIR)$(bindir)/erlscheme
 
 clean distclean realclean:
-	rm -rf $(EBIN_DIR) $(BIN_DIR)
+	rm -rf $(BIN_DIR) _build
+
+./rebar3:
+	mkdir -p _build; \
+	cd _build; \
+	git clone --quiet $(REBAR3_GIT); \
+	cd rebar3; \
+	git checkout --quiet $(REBAR3_VSN); \
+	./bootstrap; \
+	mv rebar3 ../../; \
+	cd ../..; \
+	rm -rf _build/rebar3
