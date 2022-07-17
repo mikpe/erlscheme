@@ -34,7 +34,7 @@
 %%
 %% 16#01: whitespace
 %% 16#02: delimiter	(used by the reader; also allows #\[ and #\])
-%% 16#04: initial	(used by the reader; also allows #\@)
+%% 16#04: initial
 %% 16#08: numeric
 %% 16#10: subsequent	(used by the reader)
 
@@ -52,7 +52,7 @@ char_is_type(Ch, Mask) ->
      %   0   1   2   3   4   5   6   7   8   9   :   ;   <   =   >   ? (48-63)
      "\x18\x18\x18\x18\x18\x18\x18\x18\x18\x18\x14\x02\x14\x14\x14\x14"
      %   @   A   B   C   D   E   F   G   H   I   J   K   L   M   N   O (64-79)
-     "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14"
+     "\x10\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14"
      %   P   Q   R   S   T   U   V   W   X   Y   Z   [   \   ]   ^   _ (80-95)
      "\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x02\x00\x02\x14\x14"
      %   `   a   b   c   d   e   f   g   h   i   j   k   l   m   n   o (96-111)
