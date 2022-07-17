@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2017 Mikael Pettersson
+%%%   Copyright 2014-2022 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -53,6 +53,7 @@ is_self_evaluating(Sexpr) ->
     {} -> true; % eof-object
     {'ES:STRING', _Bin} -> true;
     {'ES:BYTEVECTOR', _Bin} -> true;
+    _ when element(1, Sexpr) =:= 'ES:VECTOR' -> true; % since R7RS
     _ -> false
   end.
 
