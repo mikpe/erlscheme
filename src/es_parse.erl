@@ -18,6 +18,12 @@
 %%%
 %%% Parses a top-level S-expression and converts it to an abstract syntax
 %%% tree (AST).
+%%%
+%%% Extensions:
+%%% - (lambda M:F/A) evaluates to the function F of arity A exported from module M,
+%%%   M, F, and A are all evaluated except that if M or F are unbound variables, they
+%%%   are implicitly quoted to become literal symbols
+%%% - (M:F A1 ... An) is equivalent to ((lambda M:F/n) A1 ... An)
 
 -module(es_parse).
 
@@ -118,8 +124,19 @@ parse_begin(Tl, Env, IsToplevel) ->
       erlang:throw({bad_begin, Tl})
   end.
 
-parse_call(Fun, Args, Env) ->
-  {'ES:CALL', parse(Fun, Env), [parse(Arg, Env) || Arg <- Args]}.
+parse_call(Hd0, Tl, Env) ->
+  Hd = parse(Hd0, Env),
+  {Fun, Args} =
+    case Tl of
+      [':', F0 | Args0] ->
+        M = quote_if_glovar(Hd),
+        F = quote_if_glovar(parse(F0, Env)),
+        A = {'ES:QUOTE', length(Args0)},
+        {{'ES:COLON', M, F, A}, Args0};
+      _ ->
+        {Hd, Tl}
+    end,
+  {'ES:CALL', Fun, [parse(Arg, Env) || Arg <- Args]}.
 
 parse_define(Tl, Env, IsToplevel) ->
   case {Tl, IsToplevel} of
@@ -141,11 +158,19 @@ parse_if(Tl, Env) ->
 
 parse_lambda(Tl, Env) ->
   case Tl of
+    [M, ':', F, '/', A] ->
+      {'ES:COLON', quote_if_glovar(parse(M, Env)), quote_if_glovar(parse(F, Env)), parse(A, Env)};
     [Formals, Body] ->
       ScopeEnv = parse_formals(Formals, es_env:empty()),
       {'ES:LAMBDA', Formals, parse(Body, es_env:overlay(Env, ScopeEnv))};
     _ ->
       erlang:throw({bad_lambda, Tl})
+  end.
+
+quote_if_glovar(AST) ->
+  case AST of
+    {'ES:GLOVAR', Atom} -> {'ES:QUOTE', Atom};
+    _ -> AST
   end.
 
 parse_formals(Formals, ScopeEnv) ->
