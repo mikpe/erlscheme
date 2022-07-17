@@ -33,9 +33,9 @@ BIN_DIR = bin
 
 all:	compile $(BIN_DIR)/erlscheme
 
-# TODO: add xref and dialyzer
+# TODO: add dialyzer
 compile: $(REBAR3)
-	$(REBAR3) do compile, eunit
+	$(REBAR3) do compile, xref, eunit
 
 $(BIN_DIR)/erlscheme:
 	mkdir -p $(BIN_DIR)
