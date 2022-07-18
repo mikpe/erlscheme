@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2017 Mikael Pettersson
+%%%   Copyright 2014-2022 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@
 -export([init/0]).
 
 init() ->
-  define_var(':', fun ':'/2), % ErlScheme-specific hook into Erlang
   define_var('*', fun '*'/1), % varargs
   define_var('+', fun '+'/1), % varargs
   define_var('eq?', fun 'eq?'/2),
@@ -52,11 +51,6 @@ init() ->
 
 define_var(Name, Fun) ->
   es_gloenv:enter_var(Name, Fun).
-
-':'(M, F) ->
-  fun (Arg) -> % varargs
-      erlang:apply(M, F, get_varargs(Arg))
-  end.
 
 '*'(Arg) -> '*'(get_varargs(Arg), 1).
 '*'([], Acc) -> Acc;
