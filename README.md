@@ -1,4 +1,4 @@
-   Copyright 2014-2017 Mikael Pettersson
+   Copyright 2014-2022 Mikael Pettersson
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -37,6 +37,10 @@ ErlScheme also adds some features:
 
 - Interoperability with Erlang code.
 
+  * (M:F A1 ... An) calls function F of arity n exported from module M
+
+  * (lambda M:F/A) evaluates to function F of arity A exported from module M
+
 - Erlang processes and message passing.
 
 ErlScheme is a Work In Progress
@@ -50,8 +54,6 @@ Omissions:
 - Most of the Scheme standard bindings are not yet implemented.
 - The R6RS/R7RS library system is not implemented, and may never be.
 - The R6RS/R7RS exception handling system is not yet implemented.
-- Erlang bindings are limited to calling Erlang functions via the primitive
-  ":" function.  E.g., to terminate, evaluate ((: 'erlang 'halt)).
 - No documentation.
 - Exception handling is limited to restarting the REPL after printing
   a message about the exception that occurred.
