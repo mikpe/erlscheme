@@ -19,6 +19,9 @@
 %%% This currently assumes that the range of characters is [0..255],
 %%% that we represent EOF as -1, and that 7-bit ASCII is contained
 %%% in the lower 7 bits of character codes.
+%%%
+%%% Extensions:
+%%% - : and / are delimiters and thus excluded from initial and subsequent
 
 -module(es_ctype).
 
@@ -48,9 +51,9 @@ char_is_type(Ch, Mask) ->
      % DLE DC1 DC2 DC3 DC4 NAK SYN ETB CAN  EM SUB ESC  FS  GS  RS  UA (16-31)
      "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
      % SPC   !   "   #   $   %   &   '   (   )   *   +   ,   -   .   / (32-47)
-     "\x03\x14\x02\x00\x14\x14\x14\x00\x02\x02\x14\x10\x00\x10\x10\x14"
+     "\x03\x14\x02\x00\x14\x14\x14\x00\x02\x02\x14\x10\x00\x10\x10\x02"
      %   0   1   2   3   4   5   6   7   8   9   :   ;   <   =   >   ? (48-63)
-     "\x18\x18\x18\x18\x18\x18\x18\x18\x18\x18\x14\x02\x14\x14\x14\x14"
+     "\x18\x18\x18\x18\x18\x18\x18\x18\x18\x18\x02\x02\x14\x14\x14\x14"
      %   @   A   B   C   D   E   F   G   H   I   J   K   L   M   N   O (64-79)
      "\x10\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14\x14"
      %   P   Q   R   S   T   U   V   W   X   Y   Z   [   \   ]   ^   _ (80-95)
