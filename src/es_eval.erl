@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2017 Mikael Pettersson
+%%%   Copyright 2014-2022 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -25,6 +25,9 @@
 %%%   first parsed and converted to an abstract syntax tree (AST),
 %%%   which is then interpreted.  Function closures record their
 %%%   bodies as ASTs, not as S-expressions.
+%%%
+%%% Extensions:
+%%% - (: M F A) is equivalent to Erlang's fun M:F/A
 
 -module(es_eval).
 
@@ -44,6 +47,8 @@ interpret(AST, Env) ->
   case AST of
     {'ES:CALL', Fun, Actuals} ->
       interpret_call(Fun, Actuals, Env);
+    {'ES:COLON', M, F, A} ->
+      interpret_colon(M, F, A, Env);
     {'ES:DEFINE', Var, Expr} ->
       interpret_define(Var, Expr, Env);
     {'ES:GLOVAR', Var} ->
@@ -69,6 +74,12 @@ interpret_call(Fun, Args, Env) ->
 
 do_apply(FVal, Actuals) ->
   es_apply:applyN(FVal, Actuals).
+
+interpret_colon(M0, F0, A0, Env) ->
+  M = interpret(M0, Env),
+  F = interpret(F0, Env),
+  A = interpret(A0, Env),
+  fun M:F/A.
 
 interpret_define(Var, Expr, Env) ->
   %% This is restricted, by macro-expansion and parsing, to the top-level.
