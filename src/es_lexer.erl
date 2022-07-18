@@ -26,6 +26,7 @@
 %%%
 %%% Extensions:
 %%% - recognizes [ and ] for R6RS bracketed list syntax (and other LISPs before that)
+%%% - : and / are delimiters which read as single-character symbols
 
 -module(es_lexer).
 
@@ -72,6 +73,10 @@ token(LI) ->
       scan_pi_sign(LI, $-, true);
     $| ->
       scan_vertical_identifier(LI);
+    $: -> % ErlScheme extension
+      {token_identifier, ":"};
+    $/ -> % ErlScheme extension
+      {token_identifier, "/"};
     Ch ->
       case es_ctype:char_is_initial(Ch) of
 	true ->
