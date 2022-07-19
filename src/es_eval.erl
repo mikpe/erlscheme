@@ -82,19 +82,71 @@ interpret_if(Pred, Then, Else, Env) ->
   interpret(case interpret(Pred, Env) of false -> Else; _ -> Then end, Env).
 
 interpret_lambda(Formals, Body, Env) ->
-  %% This takes the easy route of treating every lambda as variadic.
-  %% Wrong-arity calls are caught by bind_formals/3.
-  fun (Arg) ->
-      Actuals = get_varargs(Arg),
-      interpret(Body, bind_formals(Formals, Actuals, Env))
-  end.
+  make_function(
+    Formals,
+    fun (Actuals) ->
+      interpret_lambda_body(Formals, Actuals, Body, Env)
+    end).
+
+interpret_lambda_body(Formals, Actuals, Body, Env) ->
+  interpret(Body, bind_formals(Formals, Actuals, Env)).
 
 bind_formals([], [], Env) ->
   Env;
 bind_formals([F|Fs], [A|As], Env) ->
-  bind_formals(Fs, As, es_env:enter(Env, F, A));
-bind_formals(F, As, Env) when is_atom(F) -> % rest parameter
-  es_env:enter(Env, F, As).
+  bind_formals(Fs, As, es_env:enter(Env, F, A)).
+
+make_function(Formals, BodyFn) ->
+  %% Synthesize a function of the correct arity.
+  %% This is ugly, but erl_eval.erl does the same thing.
+  case length(Formals) of
+    0 ->
+      fun () ->
+        BodyFn([])
+      end;
+    1 ->
+      fun (A1) ->
+        BodyFn([A1])
+      end;
+    2 ->
+      fun (A1, A2) ->
+        BodyFn([A1, A2])
+      end;
+    3 ->
+      fun (A1, A2, A3) ->
+        BodyFn([A1, A2, A3])
+      end;
+    4 ->
+      fun (A1, A2, A3, A4) ->
+        BodyFn([A1, A2, A3, A4])
+      end;
+    5 ->
+      fun (A1, A2, A3, A4, A5) ->
+        BodyFn([A1, A2, A3, A4, A5])
+      end;
+    6 ->
+      fun (A1, A2, A3, A4, A5, A6) ->
+        BodyFn([A1, A2, A3, A4, A5, A6])
+      end;
+    7 ->
+      fun (A1, A2, A3, A4, A5, A6, A7) ->
+        BodyFn([A1, A2, A3, A4, A5, A6, A7])
+      end;
+    8 ->
+      fun (A1, A2, A3, A4, A5, A6, A7, A8) ->
+        BodyFn([A1, A2, A3, A4, A5, A6, A7, A8])
+      end;
+    9 ->
+      fun (A1, A2, A3, A4, A5, A6, A7, A8, A9) ->
+        BodyFn([A1, A2, A3, A4, A5, A6, A7, A8, A9])
+      end;
+    10 ->
+      fun (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) ->
+        BodyFn([A1, A2, A3, A4, A5, A6, A7, A8, A9, A10])
+      end;
+    Arity ->
+      throw({argument_limit, Arity})
+  end.
 
 interpret_let(Bindings, Body, Env) ->
   interpret(Body, es_env:overlay(Env, interpret_let_bindings(Bindings, Env))).
@@ -121,15 +173,13 @@ interpret_letrec_bindings(Bindings, Env) ->
 unfold_recenv(RecEnv) ->
   es_env:map(RecEnv,
 	     fun (_Var, {Formals, Body, Env}) ->
-		 %% This takes the easy route of treating every lambda as variadic.
-		 %% Wrong-arity calls are caught by bind_formals/3.
-		 fun (Arg) ->
-		     Actuals = get_varargs(Arg),
+		 make_function(
+		   Formals,
+		   fun (Actuals) ->
 		     RecEnv2 = unfold_recenv(RecEnv),
 		     Env2 = es_env:overlay(Env, RecEnv2),
-		     Env3 = bind_formals(Formals, Actuals, Env2),
-		     interpret(Body, Env3)
-		 end
+		     interpret_lambda_body(Formals, Actuals, Body, Env2)
+		   end)
 	     end).
 
 interpret_letrec_binding({Var, Formals, Body}, Env, RecEnv) ->
@@ -152,10 +202,3 @@ interpret_seq(First, Next, Env) ->
 
 interpret_quote(Value) ->
   Value.
-
-%% Parameter parsing helpers
-
--define(argv, '$argv').
-
-get_varargs({?argv, L}) -> L;
-get_varargs(X) -> [X].
