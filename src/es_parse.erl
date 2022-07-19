@@ -136,7 +136,7 @@ parse_call(Hd0, Tl, Env) ->
       _ ->
         {Hd, Tl}
     end,
-  {'ES:CALL', Fun, [parse(Arg, Env) || Arg <- Args]}.
+  {'ES:PRIMOP', 'ES:APPLY', [Fun | [parse(Arg, Env) || Arg <- Args]]}.
 
 parse_define(Tl, Env, IsToplevel) ->
   case {Tl, IsToplevel} of

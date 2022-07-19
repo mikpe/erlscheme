@@ -45,8 +45,6 @@ primitive_eval(Sexpr) ->
 
 interpret(AST, Env) ->
   case AST of
-    {'ES:CALL', Fun, Actuals} ->
-      interpret_call(Fun, Actuals, Env);
     {'ES:DEFINE', Var, Expr} ->
       interpret_define(Var, Expr, Env);
     {'ES:GLOVAR', Var} ->
@@ -68,9 +66,6 @@ interpret(AST, Env) ->
     {'ES:QUOTE', Value} ->
       interpret_quote(Value)
   end.
-
-interpret_call(Fun, Args, Env) ->
-  do_apply(interpret(Fun, Env), [interpret(Arg, Env) || Arg <- Args]).
 
 do_apply(FVal, Actuals) ->
   es_apply:applyN(FVal, Actuals).
@@ -146,6 +141,7 @@ interpret_locvar(Var, Env) ->
 interpret_primop(PrimOp, Args0, Env) ->
   Args = [interpret(Arg, Env) || Arg <- Args0],
   case {PrimOp, Args} of
+    {'ES:APPLY', [F | Rest]} -> do_apply(F, Rest);
     {'ES:COLON', [M, F, A]} -> fun M:F/A
   end.
 
