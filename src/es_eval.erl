@@ -47,8 +47,6 @@ interpret(AST, Env) ->
   case AST of
     {'ES:CALL', Fun, Actuals} ->
       interpret_call(Fun, Actuals, Env);
-    {'ES:COLON', M, F, A} ->
-      interpret_colon(M, F, A, Env);
     {'ES:DEFINE', Var, Expr} ->
       interpret_define(Var, Expr, Env);
     {'ES:GLOVAR', Var} ->
@@ -63,6 +61,8 @@ interpret(AST, Env) ->
       interpret_letrec(Bindings, Body, Env);
     {'ES:LOCVAR', Var} ->
       interpret_locvar(Var, Env);
+    {'ES:PRIMOP', PrimOp, Actuals} ->
+      interpret_primop(PrimOp, Actuals, Env);
     {'ES:SEQ', First, Next} ->
       interpret_seq(First, Next, Env);
     {'ES:QUOTE', Value} ->
@@ -74,12 +74,6 @@ interpret_call(Fun, Args, Env) ->
 
 do_apply(FVal, Actuals) ->
   es_apply:applyN(FVal, Actuals).
-
-interpret_colon(M0, F0, A0, Env) ->
-  M = interpret(M0, Env),
-  F = interpret(F0, Env),
-  A = interpret(A0, Env),
-  fun M:F/A.
 
 interpret_define(Var, Expr, Env) ->
   %% This is restricted, by macro-expansion and parsing, to the top-level.
@@ -148,6 +142,12 @@ interpret_letrec_binding({Var, Formals, Body}, Env, RecEnv) ->
 
 interpret_locvar(Var, Env) ->
   es_env:get(Env, Var).
+
+interpret_primop(PrimOp, Args0, Env) ->
+  Args = [interpret(Arg, Env) || Arg <- Args0],
+  case {PrimOp, Args} of
+    {'ES:COLON', [M, F, A]} -> fun M:F/A
+  end.
 
 interpret_seq(First, Next, Env) ->
   interpret(First, Env),

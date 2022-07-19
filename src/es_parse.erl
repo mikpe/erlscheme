@@ -132,7 +132,7 @@ parse_call(Hd0, Tl, Env) ->
         M = quote_if_glovar(Hd),
         F = quote_if_glovar(parse(F0, Env)),
         A = {'ES:QUOTE', length(Args0)},
-        {{'ES:COLON', M, F, A}, Args0};
+        {{'ES:PRIMOP', 'ES:COLON', [M, F, A]}, Args0};
       _ ->
         {Hd, Tl}
     end,
@@ -159,7 +159,7 @@ parse_if(Tl, Env) ->
 parse_lambda(Tl, Env) ->
   case Tl of
     [M, ':', F, '/', A] ->
-      {'ES:COLON', quote_if_glovar(parse(M, Env)), quote_if_glovar(parse(F, Env)), parse(A, Env)};
+      {'ES:PRIMOP', 'ES:COLON', [quote_if_glovar(parse(M, Env)), quote_if_glovar(parse(F, Env)), parse(A, Env)]};
     [Formals, Body] ->
       ScopeEnv = parse_formals(Formals, es_env:empty()),
       {'ES:LAMBDA', Formals, parse(Body, es_env:overlay(Env, ScopeEnv))};
