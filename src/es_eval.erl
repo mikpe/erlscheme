@@ -68,7 +68,7 @@ interpret(AST, Env) ->
   end.
 
 do_apply(FVal, Actuals) ->
-  es_apply:applyN(FVal, Actuals).
+  erlang:apply(FVal, Actuals).
 
 interpret_define(Var, Expr, Env) ->
   %% This is restricted, by macro-expansion and parsing, to the top-level.

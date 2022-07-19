@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2017 Mikael Pettersson
+%%%   Copyright 2017-2022 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -148,7 +148,7 @@ assemble_lambda_varargs(ListPattern, Body) -> % accept vararg or non-vararg para
   Var2 = cerl:c_var(2), % '_2'
   cerl:c_fun([Var1],
 	     cerl:c_case(cerl:c_case(Var1,
-				     [cerl:c_clause([cerl:c_tuple_skel([cerl:c_atom(es_apply:argv()), Var2])], Var2),
+				     [cerl:c_clause([cerl:c_tuple_skel([cerl:c_atom('$argv'), Var2])], Var2),
 				      cerl:c_clause([wildpat()], cerl:c_cons(Var1, cerl:c_nil()))]),
 			 [cerl:c_clause([ListPattern], Body),
 			  cerl:c_clause([wildpat()],
@@ -159,7 +159,7 @@ assemble_lambda_1(Var, Body) -> % an arity-1 lambda must reject a varargs parame
   %% fun (Var) -> case Var of {'$argv', _} -> erlang:error(badarity); _ -> Body end
   cerl:c_fun([Var],
 	     cerl:c_case(Var,
-			 [cerl:c_clause([cerl:c_tuple_skel([cerl:c_atom(es_apply:argv()), wildpat()])],
+			 [cerl:c_clause([cerl:c_tuple_skel([cerl:c_atom('$argv'), wildpat()])],
 					cerl:c_call(cerl:c_atom('erlang'), cerl:c_atom('error'), [cerl:c_atom('badarity')])),
 			  cerl:c_clause([wildpat()], Body)])).
 
