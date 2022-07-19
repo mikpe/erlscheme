@@ -33,6 +33,8 @@ init() ->
   define_var('pair?', fun 'pair?'/1),
   define_var('list?', fun 'list?'/1),
   define_var('cons', fun 'cons'/2),
+  define_var('append', fun 'append'/2),
+  define_var('reverse', fun 'reverse'/1),
   define_var('car', fun 'car'/1),
   define_var('cdr', fun 'cdr'/1),
   define_var('caar', fun 'caar'/1),
@@ -87,6 +89,12 @@ listp([]) -> true;
 listp(_) -> false.
 
 'cons'(X, Y) -> [X | Y].
+
+'append'(X, Y) -> X ++ Y.
+
+'reverse'(Arg) ->
+  X = get_onearg(Arg),
+  lists:reverse(X).
 
 'car'(Arg) ->
   [X | _] = get_onearg(Arg),
