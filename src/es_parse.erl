@@ -187,8 +187,6 @@ parse_formals(Formals, ScopeEnv) ->
       ScopeEnv;
     [Formal | RestFormals] when is_atom(Formal) ->
       parse_formals(RestFormals, bind(Formal, ScopeEnv));
-    RestFormal when is_atom(RestFormal) ->
-      bind(RestFormal, ScopeEnv);
     _ ->
       erlang:throw({bad_formals, Formals})
   end.
