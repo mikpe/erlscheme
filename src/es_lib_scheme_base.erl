@@ -23,8 +23,8 @@
 -export([init/0]).
 
 init() ->
-  define_var('*', fun '*'/1), % varargs
-  define_var('+', fun '+'/1), % varargs
+  define_var('*', fun '*'/2),
+  define_var('+', fun '+'/2),
   define_var('eq?', fun 'eq?'/2),
   define_var('memq', fun 'memq'/2),
   define_var('symbol?', fun 'symbol?'/1),
@@ -51,13 +51,9 @@ init() ->
 define_var(Name, Fun) ->
   es_gloenv:enter_var(Name, Fun).
 
-'*'(Arg) -> '*'(get_varargs(Arg), 1).
-'*'([], Acc) -> Acc;
-'*'([H | T], Acc) -> '*'(T, Acc * H).
+'*'(X, Y) -> X * Y.
 
-'+'(Arg) -> '+'(get_varargs(Arg), 0).
-'+'([], Acc) -> Acc;
-'+'([H | T], Acc) -> '+'(T, Acc + H).
+'+'(X, Y) -> X + Y.
 
 'eq?'(X, Y) -> X =:= Y.
 
@@ -149,6 +145,3 @@ listp(_) -> false.
 
 get_onearg({?argv, _L}) -> error(badarity);
 get_onearg(X) -> X.
-
-get_varargs({?argv, L}) -> L;
-get_varargs(X) -> [X].
