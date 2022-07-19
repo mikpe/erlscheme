@@ -46,17 +46,9 @@
 ;;; - downcase keyword symbols
 ;;; - temporarily use %map rather than map
 ;;; - replace "illegal" with "invalid" in finalize-quasiquote error message
-
-;;;; cons* compability (used by quasiquote)
-
-(define (cons* first-element . rest-elements)
-  (define (loop this-element rest-elements)
-    (if (null? rest-elements)
-	this-element
-	(cons this-element
-	      (loop (car rest-elements)
-		    (cdr rest-elements)))))
-  (loop first-element rest-elements))
+;;;
+;;; Ported to ErlScheme 0.7 by Mikael Pettersson:
+;;; - replace (cons* x .. y z) with (append (list x .. y) z)
 
 ;;;; Quasiquote
 
@@ -129,8 +121,18 @@
 	((eq? mode 'cons)
 	 (if (null? (cddr arg))		; (= (length arg) 2)
 	     (cons (system 'cons) arg)
-	     (cons (system 'cons*) arg)))
+	     (finalize-cons* arg)))
 	(else (cons mode arg))))
+
+(define (finalize-cons* args)
+  (if (null? (cdr args))
+      (car args)
+      (let* ((revargs (reverse args))
+             (last (car revargs))
+             (butlast (reverse (cdr revargs))))
+        (cons (system 'append)
+              (cons (cons (system 'list) butlast)
+                    (cons last '()))))))
 
 (define (system name)
   ;; Here's a problem: quasiquote expansions need to use some standard
