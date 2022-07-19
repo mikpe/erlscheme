@@ -142,7 +142,8 @@ interpret_primop(PrimOp, Args0, Env) ->
   Args = [interpret(Arg, Env) || Arg <- Args0],
   case {PrimOp, Args} of
     {'ES:APPLY', [F | Rest]} -> do_apply(F, Rest);
-    {'ES:COLON', [M, F, A]} -> fun M:F/A
+    {'ES:COLON', [M, F, A]} -> fun M:F/A;
+    {'ES:LIST', _} -> Args
   end.
 
 interpret_seq(First, Next, Env) ->

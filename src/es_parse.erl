@@ -126,7 +126,7 @@ parse_begin(Tl, Env, IsToplevel) ->
 
 parse_call(Hd0, Tl, Env) ->
   Hd = parse(Hd0, Env),
-  {Fun, Args} =
+  {Fun, Args1} =
     case Tl of
       [':', F0 | Args0] ->
         M = quote_if_glovar(Hd),
@@ -136,7 +136,15 @@ parse_call(Hd0, Tl, Env) ->
       _ ->
         {Hd, Tl}
     end,
-  {'ES:PRIMOP', 'ES:APPLY', [Fun | [parse(Arg, Env) || Arg <- Args]]}.
+  Args = [parse(Arg, Env) || Arg <- Args1],
+  %% Recognize calls to special built-ins:
+  %% - (list ...) becomes a built-in to avoid needing a variadic list/N function
+  {PrimOp, PrimArgs} =
+    case Fun of
+      {'ES:GLOVAR', 'list'} -> {'ES:LIST', Args};
+      _ -> {'ES:APPLY', [Fun | Args]}
+    end,
+  {'ES:PRIMOP', PrimOp, PrimArgs}.
 
 parse_define(Tl, Env, IsToplevel) ->
   case {Tl, IsToplevel} of
