@@ -33,6 +33,10 @@ features:
 - No "full numeric tower".  This is mainly due to the Erlang/OTP VM only
   supporting integers (fixnums and bignums) and flonums.
 
+- No variadic functions.  The Erlang/OTP VM does not support this feature,
+  and emulating it requires changing calling conventions which ends up making
+  interoperability with Erlang code more difficult.
+
 ErlScheme also adds some features:
 
 - Interoperability with Erlang code.
