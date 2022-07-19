@@ -32,7 +32,6 @@ init() ->
   define_var('null?', fun 'null?'/1),
   define_var('pair?', fun 'pair?'/1),
   define_var('list?', fun 'list?'/1),
-  define_var('list', fun 'list'/1), % varargs
   define_var('cons', fun 'cons'/2),
   define_var('car', fun 'car'/1),
   define_var('cdr', fun 'cdr'/1),
@@ -90,8 +89,6 @@ define_var(Name, Fun) ->
 listp([_ | L]) -> listp(L);
 listp([]) -> true;
 listp(_) -> false.
-
-'list'(Arg) -> get_varargs(Arg).
 
 'cons'(X, Y) -> [X | Y].
 
