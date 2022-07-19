@@ -63,24 +63,19 @@ define_var(Name, Fun) ->
 'memq'(X, [_ | L]) -> 'memq'(X, L);
 'memq'(_, []) -> false.
 
-'symbol?'(Arg) ->
-  X = get_onearg(Arg),
+'symbol?'(X) ->
   es_datum:is_symbol(X).
 
-'zero?'(Arg) ->
-  X = get_onearg(Arg),
+'zero?'(X) ->
   X == 0.
 
-'null?'(Arg) ->
-  X = get_onearg(Arg),
+'null?'(X) ->
   case X of [] -> true; _ -> false end.
 
-'pair?'(Arg) ->
-  X = get_onearg(Arg),
+'pair?'(X) ->
   case X of [_ | _] -> true; _ -> false end.
 
-'list?'(Arg) ->
-  X = get_onearg(Arg),
+'list?'(X) ->
   listp(X). % is_list/1 is taken :-(
 
 %% Erlang has no circular lists, so we don't need the Hare-and-Tortoise algorithm.
@@ -92,44 +87,34 @@ listp(_) -> false.
 
 'append'(X, Y) -> X ++ Y.
 
-'reverse'(Arg) ->
-  X = get_onearg(Arg),
+'reverse'(X) ->
   lists:reverse(X).
 
-'car'(Arg) ->
-  [X | _] = get_onearg(Arg),
+'car'([X | _]) ->
   X.
 
-'cdr'(Arg) ->
-  [_ | Y] = get_onearg(Arg),
+'cdr'([_ | Y]) ->
   Y.
 
-'caar'(Arg) ->
-  [[X | _] | _] = get_onearg(Arg),
+'caar'([[X | _] | _]) ->
   X.
 
-'cadr'(Arg) ->
-  [_, X | _] = get_onearg(Arg),
+'cadr'([_, X | _]) ->
   X.
 
-'cddr'(Arg) ->
-  [_, _ | Y] = get_onearg(Arg),
+'cddr'([_, _ | Y]) ->
   Y.
 
-'caddr'(Arg) ->
-  [_, _, X | _] = get_onearg(Arg),
+'caddr'([_, _, X | _]) ->
   X.
 
-'cdddr'(Arg) ->
-  [_, _, _ | Y] = get_onearg(Arg),
+'cdddr'([_, _, _ | Y]) ->
   Y.
 
-'vector?'(Arg) ->
-  X = get_onearg(Arg),
+'vector?'(X) ->
   es_datum:is_vector(X).
 
-'eval'(Arg) ->
-  X = get_onearg(Arg),
+'eval'(X) ->
   es_eval:primitive_eval(X).
 
 'getprop'(Name, Tag) ->
@@ -141,15 +126,8 @@ listp(_) -> false.
 'putprop'(Name, Tag, Val) ->
   es_gloenv:insert(Name, Tag, Val).
 
-'load'(Arg) ->
-  es_load:load(get_onearg(Arg)).
+'load'(X) ->
+  es_load:load(X).
 
-'compile'(Arg) ->
-  es_compile:file(get_onearg(Arg)).
-
-%% Parameter parsing helpers
-
--define(argv, '$argv').
-
-get_onearg({?argv, _L}) -> error(badarity);
-get_onearg(X) -> X.
+'compile'(X) ->
+  es_compile:file(X).
