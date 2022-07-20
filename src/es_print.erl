@@ -76,7 +76,6 @@ print_list(Hd, Tl, WL, DepthLim, WidthLim, IsDisplay) ->
 
 print_tuple(Tuple, DepthLim, WidthLim, IsDisplay) ->
   case Tuple of
-    {} -> io:format("#\eof-object");
     {'ES:PORT', PortHandle} -> io:format("#<port ~s>", [erlang:pid_to_list(PortHandle)]);
     _ when element(1, Tuple) =:= 'ES:VECTOR' ->
       io:format("#("),

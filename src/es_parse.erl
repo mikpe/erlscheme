@@ -55,7 +55,6 @@ is_self_evaluating(Sexpr) ->
     _ when is_number(Sexpr) -> true; % includes characters
     true -> true;
     false -> true;
-    {} -> true; % eof-object
     _ when is_binary(Sexpr) -> true; % strings
     %% bytevectors (since R6RS/R7RS) are also self-evaluating
     _ when element(1, Sexpr) =:= 'ES:VECTOR' -> true; % since R7RS

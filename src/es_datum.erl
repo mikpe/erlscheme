@@ -58,13 +58,12 @@
 %%% Erlang considers them to be a sub-range of the integers.
 %%% We represent them as unadorned integers.
 %%%
-%%% eof-object		{}
+%%% eof-object		fun es_datum:the_eof_object/0
 %%%
 %%% Scheme requires the eof-object to be a distinct type.
-%%% All other tuples we generate are tagged and thus non-empty,
-%%% so we can use the empty tuple for this special object.
+%%% We relax that requirement and represent it as procedure
+%%% referencing es_datum:the_eof_object/0.
 %%% R5RS did not require this to be a distinct type.
-%%% [XXX: represent EOF as {'ES:CHAR', -1} instead?]
 %%%
 %%% string		binary()
 %%% bytevector		<NYI -- should be binary()>
@@ -105,7 +104,8 @@
 
 %% The EOF object
 -export([is_eof_object/1,
-	 mk_eof_object/0]).
+	 mk_eof_object/0,
+	 the_eof_object/0]).
 
 %% Vectors
 -export([is_vector/1,
@@ -142,8 +142,22 @@ is_symbol(X) ->
 
 %% The EOF object
 
-is_eof_object(X) -> case X of {} -> true; _ -> false end.
-mk_eof_object() -> {}.
+-define(the_eof_object, the_eof_object).
+
+is_eof_object(X) ->
+  case is_function(X, 0) of
+    true ->
+      case erlang:fun_info(X, name) of
+        {name, ?the_eof_object} -> {module, ?MODULE} =:= erlang:fun_info(X, module);
+        {name, _} -> false
+      end;
+    false ->
+      false
+  end.
+
+mk_eof_object() -> fun ?MODULE:?the_eof_object/0.
+
+?the_eof_object() -> [].
 
 %% Vectors
 
