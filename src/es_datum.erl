@@ -81,7 +81,7 @@
 %%% procedure		Fun/N
 %%%
 %%% An Scheme procedure becomes an Erlang function of the same arity.
-%%% A variable-arity procedure becomes an Erlang function of arity 1.
+%%% Variable-arity procedures are not supported.
 %%%
 %%% tid			pid
 %%%
