@@ -25,23 +25,37 @@
 %%%   first parsed and converted to an abstract syntax tree (AST),
 %%%   which is then interpreted.  Function closures record their
 %%%   bodies as ASTs, not as S-expressions.
+%%% - Variadic functions (with "rest" parameters) are not supported, since
+%%%   they mess up calling conventions and interoperability with Erlang.
 %%%
 %%% Extensions:
 %%% - (: M F A) is equivalent to Erlang's fun M:F/A
 
 -module(es_eval).
 
--export([dynamic_eval/1, primitive_eval/1, do_apply/2]).
+-export([ do_apply/2
+        , dynamic_eval/1
+        , primitive_eval/1
+        ]).
 
-%%
+-type sexpr() :: term().
+-type datum() :: term().
 
+%% API -------------------------------------------------------------------------
+
+-spec do_apply(fun(() -> datum()), [datum()]) -> datum().
+do_apply(Fun, Actuals) ->
+  erlang:apply(Fun, Actuals).
+
+-spec dynamic_eval(sexpr()) -> datum().
 dynamic_eval(Sexpr) ->
   do_apply(es_gloenv:get_var('eval'), [Sexpr]).
 
+-spec primitive_eval(sexpr()) -> datum().
 primitive_eval(Sexpr) ->
   interpret(es_parse:toplevel(Sexpr), es_env:empty()).
 
-%% AST interpreter
+%% Internals (AST interpreter) -------------------------------------------------
 
 interpret(AST, Env) ->
   case AST of
@@ -67,9 +81,6 @@ interpret(AST, Env) ->
       interpret_quote(Value)
   end.
 
-do_apply(FVal, Actuals) ->
-  erlang:apply(FVal, Actuals).
-
 interpret_define(Var, Expr, Env) ->
   %% This is restricted, by macro-expansion and parsing, to the top-level.
   %% XXX: ensure we return a valid Scheme datum here
@@ -90,6 +101,59 @@ interpret_lambda(Formals, Body, Env) ->
 
 interpret_lambda_body(Formals, Actuals, Body, Env) ->
   interpret(Body, bind_formals(Formals, Actuals, Env)).
+
+interpret_let(Bindings, Body, Env) ->
+  interpret(Body, es_env:overlay(Env, interpret_let_bindings(Bindings, Env))).
+
+interpret_let_bindings(Bindings, Env) ->
+  lists:foldl(fun ({Var, Expr}, NestedEnv) ->
+                es_env:enter(NestedEnv, Var, interpret(Expr, Env))
+              end,
+              es_env:empty(), Bindings).
+
+interpret_letrec(Bindings, Body, Env) ->
+  interpret(Body, es_env:overlay(Env, interpret_letrec_bindings(Bindings, Env))).
+
+interpret_letrec_bindings(Bindings, Env) ->
+  RecEnv2 = lists:foldl(fun ({Var, Formals, Body}, RecEnv1) ->
+                          es_env:enter(RecEnv1, Var, {Formals, Body, Env})
+                        end,
+                        es_env:empty(), Bindings),
+  unfold_recenv(RecEnv2).
+
+unfold_recenv(RecEnv) ->
+  es_env:map(RecEnv,
+             fun (_Var, {Formals, Body, Env}) ->
+                 make_function(
+                   Formals,
+                   fun (Actuals) ->
+                     %% The recursive unfolding is delayed until the function is
+                     %% applied, making it finite.
+                     RecEnv2 = unfold_recenv(RecEnv),
+                     Env2 = es_env:overlay(Env, RecEnv2),
+                     interpret_lambda_body(Formals, Actuals, Body, Env2)
+                   end)
+             end).
+
+interpret_locvar(Var, Env) ->
+  es_env:get(Env, Var).
+
+interpret_primop(PrimOp, Args0, Env) ->
+  Args = [interpret(Arg, Env) || Arg <- Args0],
+  case {PrimOp, Args} of
+    {'ES:APPLY', [F | Rest]} -> do_apply(F, Rest);
+    {'ES:COLON', [M, F, A]} -> fun M:F/A;
+    {'ES:LIST', _} -> Args
+  end.
+
+interpret_seq(First, Next, Env) ->
+  interpret(First, Env),
+  interpret(Next, Env).
+
+interpret_quote(Value) ->
+  Value.
+
+%% Auxiliary helpers -----------------------------------------------------------
 
 bind_formals([], [], Env) ->
   Env;
@@ -147,58 +211,3 @@ make_function(Formals, BodyFn) ->
     Arity ->
       throw({argument_limit, Arity})
   end.
-
-interpret_let(Bindings, Body, Env) ->
-  interpret(Body, es_env:overlay(Env, interpret_let_bindings(Bindings, Env))).
-
-interpret_let_bindings(Bindings, Env) ->
-  lists:foldl(fun (Binding, NestedEnv) ->
-		  interpret_let_binding(Binding, Env, NestedEnv)
-	      end,
-	      es_env:empty(), Bindings).
-
-interpret_let_binding({Var, Expr}, Env, NestedEnv) ->
-  es_env:enter(NestedEnv, Var, interpret(Expr, Env)).
-
-interpret_letrec(Bindings, Body, Env) ->
-  interpret(Body, es_env:overlay(Env, interpret_letrec_bindings(Bindings, Env))).
-
-interpret_letrec_bindings(Bindings, Env) ->
-  RecEnv2 = lists:foldl(fun (Binding, RecEnv1) ->
-			    interpret_letrec_binding(Binding, Env, RecEnv1)
-			end,
-			es_env:empty(), Bindings),
-  unfold_recenv(RecEnv2).
-
-unfold_recenv(RecEnv) ->
-  es_env:map(RecEnv,
-	     fun (_Var, {Formals, Body, Env}) ->
-		 make_function(
-		   Formals,
-		   fun (Actuals) ->
-		     RecEnv2 = unfold_recenv(RecEnv),
-		     Env2 = es_env:overlay(Env, RecEnv2),
-		     interpret_lambda_body(Formals, Actuals, Body, Env2)
-		   end)
-	     end).
-
-interpret_letrec_binding({Var, Formals, Body}, Env, RecEnv) ->
-  es_env:enter(RecEnv, Var, {Formals, Body, Env}).
-
-interpret_locvar(Var, Env) ->
-  es_env:get(Env, Var).
-
-interpret_primop(PrimOp, Args0, Env) ->
-  Args = [interpret(Arg, Env) || Arg <- Args0],
-  case {PrimOp, Args} of
-    {'ES:APPLY', [F | Rest]} -> do_apply(F, Rest);
-    {'ES:COLON', [M, F, A]} -> fun M:F/A;
-    {'ES:LIST', _} -> Args
-  end.
-
-interpret_seq(First, Next, Env) ->
-  interpret(First, Env),
-  interpret(Next, Env).
-
-interpret_quote(Value) ->
-  Value.
