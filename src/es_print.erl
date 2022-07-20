@@ -48,7 +48,7 @@ print(Term, DepthLim, WidthLim, IsDisplay) ->
     [] -> io:format("()");
     true -> io:format("#t");
     false -> io:format("#f");
-    _ when is_number(Term) -> io:format("~p", [Term]);
+    _ when is_number(Term) -> io:format("~p", [Term]); % includes characters
     _ when is_atom(Term) -> print_symbol(Term, IsDisplay);
     _ when is_function(Term) ->
       io:format("#<subr ~s>", [erlang:fun_to_list(Term)]);
@@ -77,7 +77,6 @@ print_list(Hd, Tl, WL, DepthLim, WidthLim, IsDisplay) ->
 print_tuple(Tuple, DepthLim, WidthLim, IsDisplay) ->
   case Tuple of
     {} -> io:format("#\eof-object");
-    {'ES:CHAR', Ch} -> print_charlit(Ch, IsDisplay);
     {'ES:PORT', PortHandle} -> io:format("#<port ~s>", [erlang:pid_to_list(PortHandle)]);
     _ when element(1, Tuple) =:= 'ES:VECTOR' ->
       io:format("#("),
@@ -97,35 +96,6 @@ print_vector(Tuple, I, DepthLim, WidthLim, IsDisplay) ->
 	 true ->
 	  print(element(I + 2, Tuple), decrement(DepthLim), WidthLim, IsDisplay),
 	  print_vector(Tuple, I + 1, DepthLim, WidthLim, IsDisplay)
-      end
-  end.
-
-print_charlit(Ch, IsDisplay) ->
-  case IsDisplay of
-    true ->
-      io:format("~c", [Ch]);
-    false ->
-      case Ch of
-	7 ->
-	  io:format("#\\alarm");
-	8 ->
-	  io:format("#\\backspace");
-	9 ->
-	  io:format("#\\tab");
-	10 ->
-	  io:format("#\\newline");
-	13 ->
-	  io:format("#\\return");
-	27 ->
-	  io:format("#\\escape");
-	32 ->
-	  io:format("#\\space");
-	127 ->
-	  io:format("#\\delete");
-	_ when Ch < 32; Ch > 127 ->
-	  io:format("#\\x~.16B", [Ch]);
-	_ ->
-	  io:format("#\\~c", [Ch])
       end
   end.
 

@@ -52,11 +52,11 @@
 %%% from those we also represent vectors as tagged tuples, and
 %%% accept that mutation is unavailable.
 %%%
-%%% character		{'ES:CHAR', Integer}
+%%% character		char()
 %%%
 %%% Scheme requires characters to be a distinct type, but
 %%% Erlang considers them to be a sub-range of the integers.
-%%% We represent them as integers inside tagged tuples.
+%%% We represent them as unadorned integers.
 %%%
 %%% eof-object		{}
 %%%
@@ -114,9 +114,7 @@
 	 vector_set/3]).
 
 %% Characters
--export([is_char/1,
-	 integer_to_char/1,
-	 char_to_integer/1]).
+-export([integer_to_char/1]).
 
 %% Strings
 -export([is_string/1,
@@ -163,14 +161,7 @@ vector_set(V, I, X) -> setelement(I + 2, V, X).
 
 %% Characters
 
-is_char(X) ->
-  if is_tuple(X), size(X) =:= 2, element(1, X) =:= 'ES:CHAR' -> true;
-     true -> false
-  end.
-
-integer_to_char(I) -> {'ES:CHAR', I}.
-
-char_to_integer({'ES:CHAR', I}) -> I.
+integer_to_char(I) -> I.
 
 %% Strings
 

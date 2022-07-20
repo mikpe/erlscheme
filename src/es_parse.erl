@@ -52,10 +52,9 @@ parse(Sexpr, Env, IsToplevel) ->
 
 is_self_evaluating(Sexpr) ->
   case Sexpr of
-    _ when is_number(Sexpr) -> true;
+    _ when is_number(Sexpr) -> true; % includes characters
     true -> true;
     false -> true;
-    {'ES:CHAR', _Ch} -> true;
     {} -> true; % eof-object
     _ when is_binary(Sexpr) -> true; % strings
     %% bytevectors (since R6RS/R7RS) are also self-evaluating
