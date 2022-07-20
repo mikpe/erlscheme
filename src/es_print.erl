@@ -50,7 +50,7 @@ print(Term, DepthLim, WidthLim, IsDisplay) ->
     false -> io:format("#f");
     _ when is_number(Term) -> io:format("~p", [Term]); % includes characters
     _ when is_atom(Term) -> print_symbol(Term, IsDisplay);
-    _ when is_function(Term) ->
+    _ when is_function(Term) -> % includes eof-object
       io:format("#<subr ~s>", [erlang:fun_to_list(Term)]);
     _ when is_binary(Term) -> print_string(Term, IsDisplay);
     _ when is_tuple(Term) -> print_tuple(Term, DepthLim, WidthLim, IsDisplay)
