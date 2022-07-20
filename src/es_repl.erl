@@ -51,15 +51,25 @@ es_load_init() ->
   io:format(" done~n").
 
 repl(N, LI) ->
+  case rep(N, LI) of
+    ok -> repl(N + 1, LI);
+    false -> ok
+  end.
+
+rep(N, LI) ->
   try
     io:format("ErlScheme_~p> ", [N]),
     Sexpr = es_read:read(LI),
-    erlang:put('es_load_prefix', "."),
-    Term = es_eval:dynamic_eval(Sexpr),
-    es_print:display(Term),
-    io:format("~n")
+    case es_datum:is_eof_object(Sexpr) of
+      false ->
+        erlang:put('es_load_prefix', "."),
+        Term = es_eval:dynamic_eval(Sexpr),
+        es_print:display(Term),
+        io:format("~n");
+      true ->
+        false
+    end
   catch
     Class:Reason:Stack ->
       io:format("caught ~p:~p~n~p~n", [Class, Reason, Stack])
-  end,
-  repl(N + 1, LI).
+  end.
