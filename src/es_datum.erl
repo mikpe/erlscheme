@@ -74,11 +74,13 @@
 %%% as unadorned binaries, and accept that mutation is unavailable.
 %%% R5RS did not have bytevectors, they were added in R6RS and R7RS.
 %%%
-%%% port		{'ES:PORT', PortHandle}
+%%% port		<an arity-0 closure from module es_port_wrapper>
 %%%
-%%% Scheme requires ports to be a distinct type, but Erlang has no
-%%% corresponding type.  We represent them as our private handles
-%%% inside tagged tuples.
+%%% [NYI]
+%%% Scheme requires ports to be a distinct type.  We relax that
+%%% requirement and represent a port as an arity-0 function closure
+%%% that returns the corresponding handle (Pid).  The function closures
+%%% need to come from a reserved module to enable checking their type.
 %%%
 %%% procedure		Fun/N
 %%%
@@ -120,11 +122,6 @@
 -export([is_string/1,
 	 binary_to_string/1,
 	 string_to_binary/1]).
-
-%% Ports
--export([is_port/1,
-	 handle_to_port/1,
-	 port_to_handle/1]).
 
 %% Booleans
 
@@ -185,14 +182,3 @@ is_string(X) ->
 binary_to_string(B) -> B.
 
 string_to_binary(S) -> S.
-
-%% Ports
-
-is_port(X) ->
-  if is_tuple(X), size(X) =:= 2, element(1, X) =:= 'ES:PORT' -> true;
-     true -> false
-  end.
-
-handle_to_port(H) -> {'ES:PORT', H}.
-
-port_to_handle(P) -> element(2, P).

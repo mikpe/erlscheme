@@ -50,7 +50,7 @@ print(Term, DepthLim, WidthLim, IsDisplay) ->
     false -> io:format("#f");
     _ when is_number(Term) -> io:format("~p", [Term]); % includes characters
     _ when is_atom(Term) -> print_symbol(Term, IsDisplay);
-    _ when is_function(Term) -> % includes eof-object
+    _ when is_function(Term) -> % includes eof-object and ports
       io:format("#<subr ~s>", [erlang:fun_to_list(Term)]);
     _ when is_binary(Term) -> print_string(Term, IsDisplay);
     _ when is_tuple(Term) -> print_tuple(Term, DepthLim, WidthLim, IsDisplay)
@@ -76,7 +76,6 @@ print_list(Hd, Tl, WL, DepthLim, WidthLim, IsDisplay) ->
 
 print_tuple(Tuple, DepthLim, WidthLim, IsDisplay) ->
   case Tuple of
-    {'ES:PORT', PortHandle} -> io:format("#<port ~s>", [erlang:pid_to_list(PortHandle)]);
     _ when element(1, Tuple) =:= 'ES:VECTOR' ->
       io:format("#("),
       print_vector(Tuple, 0, DepthLim, WidthLim, IsDisplay),
