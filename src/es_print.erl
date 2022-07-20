@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2017 Mikael Pettersson
+%%%   Copyright 2014-2022 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -78,7 +78,6 @@ print_tuple(Tuple, DepthLim, WidthLim, IsDisplay) ->
     {} -> io:format("#\eof-object");
     {'ES:CHAR', Ch} -> print_charlit(Ch, IsDisplay);
     {'ES:STRING', Binary} -> print_string(Binary, IsDisplay);
-    %% {'ES:BYTEVECTOR', Binary} -> ;
     {'ES:PORT', PortHandle} -> io:format("#<port ~s>", [erlang:pid_to_list(PortHandle)]);
     _ when element(1, Tuple) =:= 'ES:VECTOR' ->
       io:format("#("),

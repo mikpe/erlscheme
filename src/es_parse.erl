@@ -58,7 +58,7 @@ is_self_evaluating(Sexpr) ->
     {'ES:CHAR', _Ch} -> true;
     {} -> true; % eof-object
     {'ES:STRING', _Bin} -> true;
-    {'ES:BYTEVECTOR', _Bin} -> true;
+    %% bytevectors (since R6RS/R7RS) are also self-evaluating
     _ when element(1, Sexpr) =:= 'ES:VECTOR' -> true; % since R7RS
     _ -> false
   end.

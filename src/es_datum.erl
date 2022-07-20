@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2017 Mikael Pettersson
+%%%   Copyright 2014-2022 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@
 %%% [XXX: represent EOF as {'ES:CHAR', -1} instead?]
 %%%
 %%% string		{'ES:STRING', Binary}
-%%% bytevector		{'ES:BYTEVECTOR', Binary}
+%%% bytevector		<NYI -- should be binary()>
 %%%
 %%% Scheme requires strings and bytevectors to be distinct types,
 %%% but Erlang considers strings to be lists of characters while
@@ -123,11 +123,6 @@
 -export([is_string/1,
 	 binary_to_string/1,
 	 string_to_binary/1]).
-
-%% Bytevectors
--export([is_bytevector/1,
-	 binary_to_bytevector/1,
-	 bytevector_to_binary/1]).
 
 %% Ports
 -export([is_port/1,
@@ -188,17 +183,6 @@ is_string(X) ->
 binary_to_string(B) -> {'ES:STRING', B}.
 
 string_to_binary(S) -> element(2, S).
-
-%% Bytevectors
-
-is_bytevector(X) ->
-  if is_tuple(X), size(X) =:= 2, element(1, X) =:= 'ES:BYTEVECTOR' -> true;
-     true -> false
-  end.
-
-binary_to_bytevector(B) -> {'ES:STRING', B}.
-
-bytevector_to_binary(S) -> element(2, S).
 
 %% Ports
 
