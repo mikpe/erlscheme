@@ -42,15 +42,11 @@
 %%% but Erlang considers booleans to be special-case atoms.
 %%% We follow the Erlang convention.
 %%%
-%%% vector		{'ES:VECTOR', Elements...}
+%%% vector		tuple()
 %%%
 %%% Scheme vectors are similar to Erlang tuples, except
-%%% for the fact that tuples are immutable.
-%%% We could map vectors to tuples as-is, but several other types
-%%% require us to use tagged tuples (tuples with an atom in the
-%%% first element acting as a type tag), so to distinguish vectors
-%%% from those we also represent vectors as tagged tuples, and
-%%% accept that mutation is unavailable.
+%%% for the fact that tuples are immutable.  We map vectors
+%%% to tuples, and accept that mutation is unavailable.
 %%%
 %%% character		char()
 %%%
@@ -111,9 +107,7 @@
 
 %% Vectors
 -export([is_vector/1,
-	 list_to_vector/1,
-	 vector_ref/2,
-	 vector_set/3]).
+	 list_to_vector/1]).
 
 %% Characters
 -export([integer_to_char/1]).
@@ -158,17 +152,9 @@ mk_eof_object() -> fun ?MODULE:?the_eof_object/0.
 
 %% Vectors
 
-is_vector(X) ->
-  if is_tuple(X), size(X) >= 1, element(1, X) =:= 'ES:VECTOR' -> true;
-     true -> false
-  end.
+is_vector(X) -> is_tuple(X).
 
-list_to_vector(L) ->
-  erlang:list_to_tuple(['ES:VECTOR' | L]).
-
-vector_ref(V, I) -> element(I + 2, V).
-
-vector_set(V, I, X) -> setelement(I + 2, V, X).
+list_to_vector(L) -> erlang:list_to_tuple(L).
 
 %% Characters
 

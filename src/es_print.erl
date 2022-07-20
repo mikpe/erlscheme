@@ -75,15 +75,12 @@ print_list(Hd, Tl, WL, DepthLim, WidthLim, IsDisplay) ->
   end.
 
 print_tuple(Tuple, DepthLim, WidthLim, IsDisplay) ->
-  case Tuple of
-    _ when element(1, Tuple) =:= 'ES:VECTOR' ->
-      io:format("#("),
-      print_vector(Tuple, 0, DepthLim, WidthLim, IsDisplay),
-      io:format(")")
-  end.
+  io:format("#("),
+  print_vector(Tuple, 0, DepthLim, WidthLim, IsDisplay),
+  io:format(")").
 
 print_vector(Tuple, I, DepthLim, WidthLim, IsDisplay) ->
-  if I + 2 > size(Tuple) ->
+  if I + 1 > size(Tuple) ->
       [];
      true ->
       if I > 0 -> io:format(" ");
@@ -92,7 +89,7 @@ print_vector(Tuple, I, DepthLim, WidthLim, IsDisplay) ->
       if I >= WidthLim ->
 	  io:format("...");
 	 true ->
-	  print(element(I + 2, Tuple), decrement(DepthLim), WidthLim, IsDisplay),
+	  print(element(I + 1, Tuple), decrement(DepthLim), WidthLim, IsDisplay),
 	  print_vector(Tuple, I + 1, DepthLim, WidthLim, IsDisplay)
       end
   end.
