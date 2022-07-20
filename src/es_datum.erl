@@ -18,51 +18,51 @@
 %%%
 %%% Maps between Scheme datums and their Erlang representations.
 %%%
-%%% Scheme		Erlang
-%%% ======		======
+%%% Scheme              Erlang
+%%% ======              ======
 %%%
 %%% Straight-forward mappings:
 %%%
-%%% null		[]
-%%% number		integer or float
-%%% symbol		atom (with some exceptions)
+%%% null                []
+%%% number              integer() or float()
+%%% symbol              atom() except boolean()
 %%%
 %%% Slightly non-obvious mappings:
 %%%
-%%% pair		[_ | _]
+%%% pair                [_ | _]
 %%%
 %%% Scheme pairs are similar to Erlang list cells, except
 %%% for the fact that list cells are immutable.  We map pairs
 %%% to list cells, and accept that mutation is unavailable.
 %%%
-%%% #t			true
-%%% #f			false
+%%% #t                  true
+%%% #f                  false
 %%%
 %%% Scheme requires booleans to be disjoint from symbols,
 %%% but Erlang considers booleans to be special-case atoms.
 %%% We follow the Erlang convention.
 %%%
-%%% vector		tuple()
+%%% vector              tuple()
 %%%
 %%% Scheme vectors are similar to Erlang tuples, except
 %%% for the fact that tuples are immutable.  We map vectors
 %%% to tuples, and accept that mutation is unavailable.
 %%%
-%%% character		char()
+%%% character           char()
 %%%
 %%% Scheme requires characters to be a distinct type, but
 %%% Erlang considers them to be a sub-range of the integers.
 %%% We represent them as unadorned integers.
 %%%
-%%% eof-object		fun es_datum:the_eof_object/0
+%%% eof-object          fun es_datum:the_eof_object/0
 %%%
 %%% Scheme requires the eof-object to be a distinct type.
 %%% We relax that requirement and represent it as procedure
 %%% referencing es_datum:the_eof_object/0.
 %%% R5RS did not require this to be a distinct type.
 %%%
-%%% string		binary()
-%%% bytevector		<NYI -- should be binary()>
+%%% string              binary()
+%%% bytevector          <NYI -- should be binary()>
 %%%
 %%% Scheme requires strings and bytevectors to be distinct types,
 %%% but Erlang considers strings to be lists of characters while
@@ -70,7 +70,7 @@
 %%% as unadorned binaries, and accept that mutation is unavailable.
 %%% R5RS did not have bytevectors, they were added in R6RS and R7RS.
 %%%
-%%% port		<an arity-0 closure from module es_port_wrapper>
+%%% port                <an arity-0 closure from module es_port_wrapper>
 %%%
 %%% [NYI]
 %%% Scheme requires ports to be a distinct type.  We relax that
@@ -78,12 +78,12 @@
 %%% that returns the corresponding handle (Pid).  The function closures
 %%% need to come from a reserved module to enable checking their type.
 %%%
-%%% procedure		Fun/N
+%%% procedure           Fun/N
 %%%
 %%% An Scheme procedure becomes an Erlang function of the same arity.
 %%% Variable-arity procedures are not supported.
 %%%
-%%% tid			pid
+%%% tid                 pid
 %%%
 %%% RnRS Scheme does not have threads, but ErlScheme adds threads
 %%% and maps them to Erlang processes.
@@ -94,44 +94,34 @@
 
 -module(es_datum).
 
+%% API
+-export([ binary_to_string/1
+        , is_boolean/1
+        , is_eof_object/1
+        , is_string/1
+        , is_symbol/1
+        , is_vector/1
+        , integer_to_char/1
+        , list_to_vector/1
+        , mk_eof_object/0
+        , string_to_binary/1
+        ]).
+
+%% private exports
+-export([ the_eof_object/0
+        ]).
+
+%% API -------------------------------------------------------------------------
+
 %% Booleans
--export([is_boolean/1]).
 
-%% Symbols
--export([is_symbol/1]).
-
-%% The EOF object
--export([is_eof_object/1,
-	 mk_eof_object/0,
-	 the_eof_object/0]).
-
-%% Vectors
--export([is_vector/1,
-	 list_to_vector/1]).
+is_boolean(X) -> erlang:is_boolean(X).
 
 %% Characters
--export([integer_to_char/1]).
 
-%% Strings
--export([is_string/1,
-	 binary_to_string/1,
-	 string_to_binary/1]).
+integer_to_char(I) -> I.
 
-%% Booleans
-
-is_boolean(X) ->
-  if X =:= true; X =:= false -> true;
-     true -> false
-  end.
-
-%% Symbols
-
-is_symbol(X) ->
-  if is_atom(X), X =/= 'false', X =/= 'true' -> true;
-     true -> false
-  end.
-
-%% The EOF object
+%% EOF object
 
 -define(the_eof_object, the_eof_object).
 
@@ -146,25 +136,25 @@ is_eof_object(X) ->
       false
   end.
 
+%% This has to return an exported fun to make fun_info(_, name) well-defined.
 mk_eof_object() -> fun ?MODULE:?the_eof_object/0.
 
 ?the_eof_object() -> [].
+
+%% Strings
+
+is_string(X) -> is_binary(X).
+
+binary_to_string(B) -> B.
+
+string_to_binary(S) -> S.
+
+%% Symbols
+
+is_symbol(X) -> is_atom(X) andalso not erlang:is_boolean(X).
 
 %% Vectors
 
 is_vector(X) -> is_tuple(X).
 
 list_to_vector(L) -> erlang:list_to_tuple(L).
-
-%% Characters
-
-integer_to_char(I) -> I.
-
-%% Strings
-
-is_string(X) ->
-  is_binary(X).
-
-binary_to_string(B) -> B.
-
-string_to_binary(S) -> S.
