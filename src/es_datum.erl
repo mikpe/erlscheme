@@ -66,14 +66,13 @@
 %%% R5RS did not require this to be a distinct type.
 %%% [XXX: represent EOF as {'ES:CHAR', -1} instead?]
 %%%
-%%% string		{'ES:STRING', Binary}
+%%% string		binary()
 %%% bytevector		<NYI -- should be binary()>
 %%%
 %%% Scheme requires strings and bytevectors to be distinct types,
 %%% but Erlang considers strings to be lists of characters while
-%%% bytevectors closely resemble Erlang binaries.  We represent
-%%% both as binaries inside tagged tuples, and accept that mutation
-%%% is unavailable.
+%%% bytevectors closely resemble Erlang binaries.  We represent both
+%%% as unadorned binaries, and accept that mutation is unavailable.
 %%% R5RS did not have bytevectors, they were added in R6RS and R7RS.
 %%%
 %%% port		{'ES:PORT', PortHandle}
@@ -176,13 +175,11 @@ char_to_integer({'ES:CHAR', I}) -> I.
 %% Strings
 
 is_string(X) ->
-  if is_tuple(X), size(X) =:= 2, element(1, X) =:= 'ES:STRING' -> true;
-     true -> false
-  end.
+  is_binary(X).
 
-binary_to_string(B) -> {'ES:STRING', B}.
+binary_to_string(B) -> B.
 
-string_to_binary(S) -> element(2, S).
+string_to_binary(S) -> S.
 
 %% Ports
 
