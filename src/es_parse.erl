@@ -19,6 +19,10 @@
 %%% Parses a top-level S-expression and converts it to an abstract syntax
 %%% tree (AST).
 %%%
+%%% Notes:
+%%% - Variadic functions (with "rest" parameters) are not supported, since
+%%%   they mess up calling conventions and interoperability with Erlang.
+%%%
 %%% Extensions:
 %%% - (lambda M:F/A) evaluates to the function F of arity A exported from module M,
 %%%   M, F, and A are all evaluated except that if M or F are unbound variables, they
@@ -27,10 +31,19 @@
 
 -module(es_parse).
 
--export([toplevel/1]).
+-export([ toplevel/1
+        ]).
 
+-type sexpr() :: term().
+-type ast() :: term().
+
+%% API -------------------------------------------------------------------------
+
+-spec toplevel(sexpr()) -> ast().
 toplevel(Sexpr) ->
   parse(Sexpr, es_env:empty(), true).
+
+%% Internals -------------------------------------------------------------------
 
 parse(Sexpr, Env) ->
   parse(Sexpr, Env, false).
@@ -43,10 +56,10 @@ parse(Sexpr, Env, IsToplevel) ->
       parse_atom(Symbol, Env);
     _ ->
       case is_self_evaluating(Sexpr) of
-	true ->
-	  {'ES:QUOTE', Sexpr};
-	false ->
-	  erlang:throw({invalid_expression, Sexpr})
+        true ->
+          {'ES:QUOTE', Sexpr};
+        false ->
+          erlang:throw({invalid_expression, Sexpr})
       end
   end.
 
@@ -103,10 +116,10 @@ parse_atom(Atom, Env) ->
       {'ES:QUOTE', Atom};
     _ ->
       case es_env:lookup(Env, Atom) of
-	{value, _} ->
-	  {'ES:LOCVAR', Atom};
-	none ->
-	  {'ES:GLOVAR', Atom}
+        {value, _} ->
+          {'ES:LOCVAR', Atom};
+        none ->
+          {'ES:GLOVAR', Atom}
       end
   end.
 
@@ -116,8 +129,8 @@ parse_begin(Tl, Env, IsToplevel) ->
       parse(Expr, Env, IsToplevel);
     [Expr | Rest] ->
       {'ES:SEQ', parse(Expr, Env, IsToplevel), parse_begin(Rest, Env, IsToplevel)};
-    [] when IsToplevel ->	% (begin) is valid at the top-level
-      {'EQ:QUOTE', []};		% XXX: #!undefined
+    [] when IsToplevel ->       % (begin) is valid at the top-level
+      {'EQ:QUOTE', []};         % TODO: #!undefined
     _ ->
       erlang:throw({bad_begin, Tl})
   end.
@@ -157,7 +170,7 @@ parse_if(Tl, Env) ->
     [Pred, Then, Else] ->
       {'ES:IF', parse(Pred, Env), parse(Then, Env), parse(Else, Env)};
     [Pred, Then] ->
-      {'ES:IF', parse(Pred, Env), parse(Then, Env), {'ES:QUOTE', []}}; % XXX: #!undefined
+      {'ES:IF', parse(Pred, Env), parse(Then, Env), {'ES:QUOTE', []}}; % TODO: #!undefined
     _ ->
       erlang:throw({bad_if, Tl})
   end.
