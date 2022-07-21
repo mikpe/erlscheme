@@ -30,19 +30,15 @@
 
 -module(es_lexer).
 
--export([open/1,
-	 close/1,
-	 token/1,
-	 string_to_number/2]).
+-export([ string_to_number/2
+        , token/1
+        ]).
 
-open(LexInput) ->
-  LexInput.
+-type token() :: atom() | {atom(), term()}.
 
-close(LexInput) ->
-  es_lexinput:close(LexInput).
+%% API -------------------------------------------------------------------------
 
-%%
-
+-spec token(es_lexinput:lexinput()) -> token().
 token(LI) ->
   case skip_intertoken_space(LI) of
     -1 ->
@@ -79,40 +75,39 @@ token(LI) ->
       {token_identifier, "/"};
     Ch ->
       case es_ctype:char_is_initial(Ch) of
-	true ->
-	  scan_simple_identifier(LI, [Ch]);
-	false ->
-	  Val = es_ctype:char_value(Ch),
-	  if Val < 10 ->
-	      case decimal_q3(LI, Val, false, false) of
-		Num when is_number(Num) ->
-		  {token_number, Num};
-		false ->
-		  erlang:throw(invalid_number)
-	      end;
-	     true ->
-	      erlang:throw({invalid_character, Ch})
-	  end
+        true ->
+          scan_simple_identifier(LI, [Ch]);
+        false ->
+          Val = es_ctype:char_value(Ch),
+          if Val < 10 ->
+              case decimal_q3(LI, Val, false, false) of
+                Num when is_number(Num) ->
+                  {token_number, Num};
+                false ->
+                  erlang:throw(invalid_number)
+              end;
+             true ->
+              erlang:throw({invalid_character, Ch})
+          end
       end
   end.
 
-%%
-
+-spec string_to_number(string(), integer()) -> number() | false.
 string_to_number(String, Radix) ->
   Port = es_raw_port:open_input_string(String),
   try
     LI = es_lexinput:open(Port, []),
     try
       case number_q0(LI, Radix) of
-	Num when is_number(Num) ->
-	  case es_lexinput:peek_char(LI) of
-	    -1 ->
-	      Num;
-	    _ ->
-	      false
-	  end;
-	false ->
-	  false
+        Num when is_number(Num) ->
+          case es_lexinput:peek_char(LI) of
+            -1 ->
+              Num;
+            _ ->
+              false
+          end;
+        false ->
+          false
       end
     after
       es_lexinput:close(LI)
@@ -120,6 +115,8 @@ string_to_number(String, Radix) ->
   after
     es_raw_port:close_input_port(Port)
   end.
+
+%% Internals -------------------------------------------------------------------
 
 %% scan_hash: read what follows a '#'
 %% (a <boolean>, <character>, <vector> start, <bytevector> start, or <number>)
@@ -137,8 +134,8 @@ scan_hash(LI) ->
     $; ->
       es_lexinput:read_char(LI),
       token_hash_semi;
-%    $! -> % XXX: NYI: start of <directive>
-%    $U -> % XXX: NYI: start of <bytevector>
+%    $! -> % TODO: NYI: start of <directive>
+%    $U -> % TODO: NYI: start of <bytevector>
     $T ->
       es_lexinput:read_char(LI),
       scan_boolean(LI, Ch);
@@ -147,10 +144,10 @@ scan_hash(LI) ->
       scan_boolean(LI, Ch);
     _ ->
       case number_q1(LI, 10) of
-	Num when is_number(Num) ->
-	  {token_number, Num};
-	false ->
-	  erlang:throw(invalid_number)
+        Num when is_number(Num) ->
+          {token_number, Num};
+        false ->
+          erlang:throw(invalid_number)
       end
   end.
 
@@ -164,55 +161,55 @@ scan_hash_norm(Ch) -> % normalize case of relevant characters
 scan_boolean(LI, Ch) ->
   {token_identifier, String} = scan_simple_identifier(LI, [Ch]),
   String2 = string:to_upper(String),
-  if String2 == "T"; String2 == "TRUE" -> % XXX: #TRUE seems to be new in R7RS
+  if String2 == "T"; String2 == "TRUE" -> % TODO: #TRUE seems to be new in R7RS
       token_true;
-     String2 == "F"; String2 == "FALSE" -> % XXX: #FALSE seems to be new in R7RS
+     String2 == "F"; String2 == "FALSE" -> % TODO: #FALSE seems to be new in R7RS
       token_false;
      true ->
       erlang:throw({invalid_boolean, String})
   end.
 
 %% <peculiar identifier>
-%%	-> <explicit sign>
-%%	 | <explicit sign> <sign subsequent> <subsequent>*
-%%	 | <explicit sign> "." <dot subsequent> <subsequent>*
-%%	 | "." <dot subsequent> <subsequent>*
-%% <dot subsequent> (XXX: == <subsequent> \ <digit>)
-%%	-> <sign subsequent>
-%%	 | "."
-%% <sign subsequent> (XXX: == <subsequent> \ <digit> \ ".")
-%%	-> <initial>
-%%	 | <explicit sign>
-%%	 | "@"
+%%      -> <explicit sign>
+%%       | <explicit sign> <sign subsequent> <subsequent>*
+%%       | <explicit sign> "." <dot subsequent> <subsequent>*
+%%       | "." <dot subsequent> <subsequent>*
+%% <dot subsequent> (TODO: == <subsequent> \ <digit>)
+%%      -> <sign subsequent>
+%%       | "."
+%% <sign subsequent> (TODO: == <subsequent> \ <digit> \ ".")
+%%      -> <initial>
+%%       | <explicit sign>
+%%       | "@"
 %% <explicit sign>
-%%	-> "+" | "-"
+%%      -> "+" | "-"
 
 scan_pi_sign(LI, Ch0, IsNegative) ->
   Ch1 = es_lexinput:peek_char(LI),
   case es_ctype:char_is_subsequent(Ch1) of
     true ->
       case es_ctype:char_is_numeric(Ch1) of
-	true ->
-	  case decimal_q1(LI, false, IsNegative) of
-	    Num when is_number(Num) ->
-	      {token_number, Num};
-	    false ->
-	      erlang:throw(invalid_number)
-	  end;
-	false ->
-	  if Ch1 =:= 46 -> % dot, messes up erlang-mode :-(
-	      scan_pi_dot(LI, [Ch1, Ch0], IsNegative);
-	     true -> % <sign subsequent>
-	      es_lexinput:read_char(LI),
-	      scan_simple_identifier(LI, [Ch1, Ch0])
-	  end
+        true ->
+          case decimal_q1(LI, false, IsNegative) of
+            Num when is_number(Num) ->
+              {token_number, Num};
+            false ->
+              erlang:throw(invalid_number)
+          end;
+        false ->
+          if Ch1 =:= 46 -> % dot, messes up erlang-mode :-(
+              scan_pi_dot(LI, [Ch1, Ch0], IsNegative);
+             true -> % <sign subsequent>
+              es_lexinput:read_char(LI),
+              scan_simple_identifier(LI, [Ch1, Ch0])
+          end
       end;
     false ->
       case es_ctype:char_is_delimiter(Ch1) of
-	true ->
-	  {token_identifier, [Ch0]};
-	false ->
-	  erlang:throw(invalid_identifier)
+        true ->
+          {token_identifier, [Ch0]};
+        false ->
+          erlang:throw(invalid_identifier)
       end
   end.
 
@@ -221,28 +218,28 @@ scan_pi_dot(LI, Acc, IsNegative) ->
   case es_ctype:char_is_subsequent(Ch) of
     true ->
       case es_ctype:char_is_numeric(Ch) of
-	true ->
-	  case decimal_q2(LI, IsNegative) of
-	    Num when is_number(Num) ->
-	      {token_number, Num};
-	    false ->
-	      erlang:throw(invalid_number)
-	  end;
-	false -> % <dot subsequent>
-	  es_lexinput:read_char(LI),
-	  scan_simple_identifier(LI, [Ch | Acc])
+        true ->
+          case decimal_q2(LI, IsNegative) of
+            Num when is_number(Num) ->
+              {token_number, Num};
+            false ->
+              erlang:throw(invalid_number)
+          end;
+        false -> % <dot subsequent>
+          es_lexinput:read_char(LI),
+          scan_simple_identifier(LI, [Ch | Acc])
       end;
     false ->
       case es_ctype:char_is_delimiter(Ch) of
-	true ->
-	  case Acc of % detect if this is "." (Ok) or "[+-]." (invalid)
-	    [46] ->
-	      token_dot;
-	    [_, 46] ->
-	      erlang:throw(invalid_identifier)
-	  end;
-	false ->
-	  erlang:throw(invalid_identifier)
+        true ->
+          case Acc of % detect if this is "." (Ok) or "[+-]." (invalid)
+            [46] ->
+              token_dot;
+            [_, 46] ->
+              erlang:throw(invalid_identifier)
+          end;
+        false ->
+          erlang:throw(invalid_identifier)
       end
   end.
 
@@ -256,10 +253,10 @@ scan_simple_identifier(LI, Acc) ->
       scan_simple_identifier(LI, [Ch | Acc]);
     false ->
       case es_ctype:char_is_delimiter(Ch) of
-	true ->
-	  {token_identifier, lists:reverse(Acc)};
-	false ->
-	  erlang:throw({expected_delimiter, Ch})
+        true ->
+          {token_identifier, lists:reverse(Acc)};
+        false ->
+          erlang:throw({expected_delimiter, Ch})
       end
   end.
 
@@ -310,22 +307,22 @@ scan_character(LI) ->
       {token_character, Ch1};
     false ->
       if Ch1 =:= $x; Ch1 =:= $X ->
-	  {token_character, scan_hex_scalar_value(LI, true)};
-	 true ->
-	  {token_identifier, String} = scan_simple_identifier(LI, [Ch1]),
-	  {token_character,
-	   case String of % note that case is significant in <character name>
-	     "alarm" -> 7;
-	     "backspace" -> 8;
-	     "delete" -> 127;
-	     "escape" -> 27;
-	     "newline" -> 10;
-	     "null" -> 0;
-	     "return" -> 13;
-	     "space" -> 32;
-	     "tab" -> 9;
-	     _ -> erlang:throw({invalid_character_name, String})
-	   end}
+          {token_character, scan_hex_scalar_value(LI, true)};
+         true ->
+          {token_identifier, String} = scan_simple_identifier(LI, [Ch1]),
+          {token_character,
+           case String of % note that case is significant in <character name>
+             "alarm" -> 7;
+             "backspace" -> 8;
+             "delete" -> 127;
+             "escape" -> 27;
+             "newline" -> 10;
+             "null" -> 0;
+             "return" -> 13;
+             "space" -> 32;
+             "tab" -> 9;
+             _ -> erlang:throw({invalid_character_name, String})
+           end}
       end
   end.
 
@@ -355,10 +352,10 @@ scan_string_backslash(LI, Acc) ->
       scan_string(LI, [Val | Acc]);
     {error, Ch} ->
       case es_ctype:char_is_whitespace(Ch) of
-	true ->
-	  scan_string_gap1(LI, Acc);
-	false ->
-	  erlang:throw({invalid_character, Ch})
+        true ->
+          scan_string_gap1(LI, Acc);
+        false ->
+          erlang:throw({invalid_character, Ch})
       end
   end.
 
@@ -421,25 +418,25 @@ scan_hex_scalar_value(LI, Delimiter, Num) ->
       scan_hex_scalar_value(LI, Delimiter, (Num * 16) + Val);
      true ->
       case Delimiter of
-	true ->
-	  case es_ctype:char_is_delimiter(Ch) of
-	    true ->
-	      [];
-	    false ->
-	      erlang:throw({expected_delimiter, Ch})
-	  end;
-	';' ->
-	  case Ch =:= ';' of
-	    true ->
-	      es_lexinput:read_char(LI);
-	    false ->
-	      erlang:throw({expected_semicolon, Ch})
-	  end
+        true ->
+          case es_ctype:char_is_delimiter(Ch) of
+            true ->
+              [];
+            false ->
+              erlang:throw({expected_delimiter, Ch})
+          end;
+        ';' ->
+          case Ch =:= ';' of
+            true ->
+              es_lexinput:read_char(LI);
+            false ->
+              erlang:throw({expected_semicolon, Ch})
+          end
       end,
-      if Val < 256 -> % XXX: 8-bit characters assumtion
-	  Val;
-	 true ->
-	  erlang:throw({out_of_range_character_value, Val})
+      if Val < 256 -> % TODO: 8-bit characters assumption
+          Val;
+         true ->
+          erlang:throw({out_of_range_character_value, Val})
       end
   end.
 
@@ -453,10 +450,10 @@ scan_string_gap1(LI, Acc) -> % before <line ending>
       scan_string_gap2(LI, Acc);
     Ch ->
       case es_ctype:char_is_whitespace(Ch) of
-	true ->
-	  scan_string_gap1(LI, Acc);
-	false ->
-	  erlang:throw({invalid_character, Ch})
+        true ->
+          scan_string_gap1(LI, Acc);
+        false ->
+          erlang:throw({invalid_character, Ch})
       end
   end.
 
@@ -479,42 +476,42 @@ scan_string_gap3(Ch, LI, Acc) -> % after <line ending>
       erlang:throw(premature_eof);
     _ ->
       case es_ctype:char_is_whitespace(Ch) of
-	true ->
-	  scan_string_gap3(LI, Acc);
-	false ->
-	  scan_string(Ch, LI, Acc)
+        true ->
+          scan_string_gap3(LI, Acc);
+        false ->
+          scan_string(Ch, LI, Acc)
       end
   end.
 
 %% The following implements a scanner for numbers:
 %%
-%% <num R>	-> <prefix R> <complex R>
-%% <complex R>	-> <real R>
-%%	[remaining alternatives omitted]
-%% <real R>	-> <sign> <ureal R>
-%%	[remaining alternatives omitted]
-%% <ureal R>	-> <uinteger  R>
-%%		 | <decimal R>
-%%	[remaining alternatives omitted]
-%% <decimal 10>	-> <uinteger 10> <suffix>
-%%		 | "." <digit 10>+ <suffix>
-%%		 | <digit 10>+ "." <digit 10>* <suffix>
-%% <uinteger R>	-> <digit R>+
-%% <prefix R>	-> <radix R> <exactness>
-%%		 | <exactness> <radix R>
-%% <suffix>	-> <empty>
-%%		 | <exponent marker> <sign> <digit 10>+
+%% <num R>      -> <prefix R> <complex R>
+%% <complex R>  -> <real R>
+%%      [remaining alternatives omitted]
+%% <real R>     -> <sign> <ureal R>
+%%      [remaining alternatives omitted]
+%% <ureal R>    -> <uinteger  R>
+%%               | <decimal R>
+%%      [remaining alternatives omitted]
+%% <decimal 10> -> <uinteger 10> <suffix>
+%%               | "." <digit 10>+ <suffix>
+%%               | <digit 10>+ "." <digit 10>* <suffix>
+%% <uinteger R> -> <digit R>+
+%% <prefix R>   -> <radix R> <exactness>
+%%               | <exactness> <radix R>
+%% <suffix>     -> <empty>
+%%               | <exponent marker> <sign> <digit 10>+
 %% <exponent marker> -> "e"
-%% <sign>	-> <empty> | "+" | "-"
-%% <exactness>	-> <empty> | "#i" | "#e"
-%% <radix 2>	-> "#b"
-%% <radix 8>	-> "#o"
-%% <radix 10>	-> <empty> | "#d"
-%% <radix 16>	-> "#x"
-%% <digit 2>	-> [0-1]
-%% <digit 8>	-> [0-7]
-%% <digit 10>	-> [0-9]
-%% <digit 16>	-> [0-9a-f]
+%% <sign>       -> <empty> | "+" | "-"
+%% <exactness>  -> <empty> | "#i" | "#e"
+%% <radix 2>    -> "#b"
+%% <radix 8>    -> "#o"
+%% <radix 10>   -> <empty> | "#d"
+%% <radix 16>   -> "#x"
+%% <digit 2>    -> [0-1]
+%% <digit 8>    -> [0-7]
+%% <digit 10>   -> [0-9]
+%% <digit 16>   -> [0-9a-f]
 %%
 %% Notes:
 %% 1) All alphabetic characters used in these rules may appear
@@ -536,10 +533,10 @@ number_q0(LI, Radix) ->
     _ ->
       Val = es_ctype:char_value(Ch),
       if Val < Radix ->
-	  es_lexinput:read_char(LI),
-	  choose_decimal_q3_or_integer_q2(LI, Radix, Val, false);
-	 true ->
-	  false
+          es_lexinput:read_char(LI),
+          choose_decimal_q3_or_integer_q2(LI, Radix, Val, false);
+         true ->
+          false
       end
   end.
 
@@ -593,10 +590,10 @@ number_q2(LI, Radix) -> % after "#{B,O,D,X}"
     Ch ->
       Val = es_ctype:char_value(Ch),
       if Val < Radix ->
-	  es_lexinput:read_char(LI),
-	  choose_decimal_q3_or_integer_q2(LI, Radix, Val, false);
-	 true ->
-	  false
+          es_lexinput:read_char(LI),
+          choose_decimal_q3_or_integer_q2(LI, Radix, Val, false);
+         true ->
+          false
       end
   end.
 
@@ -634,10 +631,10 @@ number_q4(LI, Radix, IsInexact) -> % after "#{E,I}"
     Ch ->
       Val = es_ctype:char_value(Ch),
       if Val < Radix ->
-	  es_lexinput:read_char(LI),
-	  choose_decimal_q3_or_integer_q2(LI, Radix, Val, IsInexact);
-	 true ->
-	  false
+          es_lexinput:read_char(LI),
+          choose_decimal_q3_or_integer_q2(LI, Radix, Val, IsInexact);
+         true ->
+          false
       end
   end.
 
@@ -703,10 +700,10 @@ integer_q0(LI, Radix, IsInexact) ->
     Ch ->
       Val = es_ctype:char_value(Ch),
       if Val < Radix ->
-	  es_lexinput:read_char(LI),
-	  integer_q2(LI, Radix, Val, IsInexact, false);
-	 true ->
-	  false
+          es_lexinput:read_char(LI),
+          integer_q2(LI, Radix, Val, IsInexact, false);
+         true ->
+          false
       end
   end.
 
@@ -734,14 +731,14 @@ integer_q2(LI, Radix, Num, IsInexact, IsNegative) ->
       %% forced the resulting number to become inexact, e.g.
       %% 15## became 1500.0.  This is not supported in R7RS.
       case es_ctype:char_is_delimiter(Ch) of
-	true ->
-	  if IsInexact ->
-	      float(Num);
-	     true ->
-	      Num
-	  end;
-	false ->
-	  false
+        true ->
+          if IsInexact ->
+              float(Num);
+             true ->
+              Num
+          end;
+        false ->
+          false
       end
   end.
 
@@ -761,10 +758,10 @@ decimal_q0(LI, IsInexact) ->
     Ch ->
       Val = es_ctype:char_value(Ch),
       if Val < 10 ->
-	  es_lexinput:read_char(LI),
-	  decimal_q3(LI, Val, IsInexact, false);
-	 true ->
-	  false
+          es_lexinput:read_char(LI),
+          decimal_q3(LI, Val, IsInexact, false);
+         true ->
+          false
       end
   end.
 
@@ -775,11 +772,11 @@ decimal_q1(LI, IsInexact, IsNegative) ->
     Ch ->
       Val = es_ctype:char_value(Ch),
       if Val < 10 ->
-	  es_lexinput:read_char(LI),
-	  Num = if IsNegative -> -Val; true -> Val end,
-	  decimal_q3(LI, Num, IsInexact, IsNegative);
-	 true ->
-	  false
+          es_lexinput:read_char(LI),
+          Num = if IsNegative -> -Val; true -> Val end,
+          decimal_q3(LI, Num, IsInexact, IsNegative);
+         true ->
+          false
       end
   end.
 
@@ -808,16 +805,16 @@ decimal_q3(LI, Num, IsInexact, IsNegative) ->
      true ->
       Val = es_ctype:char_value(Ch),
       if Val < 10 ->
-	  es_lexinput:read_char(LI),
-	  Num2 = Num * 10,
-	  Num3 = if IsNegative -> Num2 - Val; true -> Num2 + Val end,
-	  decimal_q3(LI, Num3, IsInexact, IsNegative);
-	 true ->
-	  if IsInexact ->
-	      float(Num);
-	     true ->
-	      Num
-	  end
+          es_lexinput:read_char(LI),
+          Num2 = Num * 10,
+          Num3 = if IsNegative -> Num2 - Val; true -> Num2 + Val end,
+          decimal_q3(LI, Num3, IsInexact, IsNegative);
+         true ->
+          if IsInexact ->
+              float(Num);
+             true ->
+              Num
+          end
       end
   end.
 
@@ -832,12 +829,12 @@ decimal_q4(LI, Num, Shift, IsNegative) ->
      true ->
       Val = es_ctype:char_value(Ch),
       if Val < 10 ->
-	  es_lexinput:read_char(LI),
-	  Num2 = Num * 10,
-	  Num3 = if IsNegative -> Num2 - Val; true -> Num2 + Val end,
-	  decimal_q4(LI, Num3, Shift - 1, IsNegative);
-	 true ->
-	  decimal_scale(Num, 0.10, -Shift)
+          es_lexinput:read_char(LI),
+          Num2 = Num * 10,
+          Num3 = if IsNegative -> Num2 - Val; true -> Num2 + Val end,
+          decimal_q4(LI, Num3, Shift - 1, IsNegative);
+         true ->
+          decimal_scale(Num, 0.10, -Shift)
       end
   end.
 
@@ -852,10 +849,10 @@ decimal_q7(LI, Num, Shift) ->
     Ch ->
       Val = es_ctype:char_value(Ch),
       if Val < 10 ->
-	  es_lexinput:read_char(LI),
-	  decimal_q9(LI, Num, Shift, false, Val);
-	 true ->
-	  false
+          es_lexinput:read_char(LI),
+          decimal_q9(LI, Num, Shift, false, Val);
+         true ->
+          false
       end
   end.
 
@@ -881,9 +878,9 @@ decimal_q9(LI, Num, Shift, IsNegative, Exp) ->
      true ->
       Shift2 = Shift + Exp,
       if Shift2 < 0 ->
-	  decimal_scale(Num, 0.10, -Shift2);
-	 true ->
-	  decimal_scale(Num, 10.0, Shift2)
+          decimal_scale(Num, 0.10, -Shift2);
+         true ->
+          decimal_scale(Num, 10.0, Shift2)
       end
   end.
 
@@ -909,10 +906,10 @@ skip_intertoken_space(LI) ->
       skip_hash(LI);
     Ch ->
       case es_ctype:char_is_whitespace(Ch) of
-	true ->
-	  skip_intertoken_space(LI);
-	false ->
-	  Ch
+        true ->
+          skip_intertoken_space(LI);
+        false ->
+          Ch
       end
   end.
 
@@ -969,9 +966,9 @@ skip_block_bar(LI, Level) ->
       skip_block_bar(LI, Level);
     $# ->
       if Level > 1 ->
-	  skip_block(LI, Level - 1);
-	 true ->
-	  skip_intertoken_space(LI)
+          skip_block(LI, Level - 1);
+         true ->
+          skip_intertoken_space(LI)
       end;
     _ ->
       skip_block(LI, Level)
