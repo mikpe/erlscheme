@@ -31,7 +31,8 @@
 
 -module(es_parse).
 
--export([ toplevel/1
+-export([ module/1
+        , toplevel/1
         ]).
 
 -type sexpr() :: term().
@@ -39,11 +40,59 @@
 
 %% API -------------------------------------------------------------------------
 
+-spec module([sexpr()]) -> ast().
+module(Sexprs) ->
+  {Name, Sexprs1} = parse_module_decl(Sexprs),
+  {Exports, Sexprs2} = parse_export_decl(Sexprs1),
+  Defuns = parse_defuns(Sexprs2),
+  {'ES:MODULE', Name, Exports, Defuns}.
+
 -spec toplevel(sexpr()) -> ast().
 toplevel(Sexpr) ->
   parse(Sexpr, es_env:empty(), true).
 
 %% Internals -------------------------------------------------------------------
+
+parse_module_decl(Sexprs) ->
+  case Sexprs of
+    [['module', Name] | Rest] ->
+      {Name, Rest};
+    [X | _] ->
+      erlang:throw({invalid_module_decl, X});
+    [] ->
+      erlang:throw(missing_module_decl)
+  end.
+
+parse_export_decl(Sexprs) ->
+  case Sexprs of
+    [['export' | Exports] | Rest] ->
+      {parse_exports(Exports, []), Rest};
+    _ ->
+      erlang:throw(missing_export_decl)
+  end.
+
+parse_exports(Exports, Acc) ->
+  case Exports of
+    [] ->
+      lists:reverse(Acc);
+    [F, '/', A | Rest] when is_atom(F), is_integer(A), A >= 0 ->
+      parse_exports(Rest, [{F, A} | Acc]);
+    [['/', F, A] | Rest] when is_atom(F), is_integer(A), A >= 0 ->
+      parse_exports(Rest, [{F, A} | Acc]);
+    _ ->
+      erlang:throw(invalid_export_decl)
+  end.
+
+parse_defuns(Sexprs) ->
+  lists:map(fun parse_defun/1, Sexprs).
+
+parse_defun(Sexpr) ->
+  case parse(Sexpr, es_env:empty(), true) of
+    {'ES:DEFINE', _Var, {'ES:LAMBDA', _Formals, _Body}} = Defun ->
+      Defun;
+    _ ->
+      erlang:throw({invalid_defun, Sexpr})
+  end.
 
 parse(Sexpr, Env) ->
   parse(Sexpr, Env, false).
