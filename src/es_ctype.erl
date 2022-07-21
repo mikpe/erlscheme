@@ -22,24 +22,25 @@
 %%%
 %%% Extensions:
 %%% - : and / are delimiters and thus excluded from initial and subsequent
+%%% - [ and ] are delimiters
 
 -module(es_ctype).
 
--export([char_is_whitespace/1,	% [-1, 255] -> true | false
-	 char_is_delimiter/1,	% [-1, 255] -> true | false
-	 char_is_initial/1,	% [-1, 255] -> true | false
-	 char_is_numeric/1,	% [-1, 255] -> true | false
-	 char_is_subsequent/1,	% [-1, 255] -> true | false
-	 char_is_eof/1,		% [-1, 255] -> true | false
-	 char_value/1]).	% [-1, 255] -> [0-15, 255]
+-export([ char_is_delimiter/1   % [-1, 255] -> true | false
+        , char_is_initial/1     % [-1, 255] -> true | false
+        , char_is_numeric/1     % [-1, 255] -> true | false
+        , char_is_subsequent/1  % [-1, 255] -> true | false
+        , char_is_whitespace/1  % [-1, 255] -> true | false
+        , char_value/1          % [-1, 255] -> [0-15, 255]
+        ]).
 
 %% Character classification flag bits:
 %%
 %% 16#01: whitespace
-%% 16#02: delimiter	(used by the reader; also allows #\[ and #\])
+%% 16#02: delimiter
 %% 16#04: initial
 %% 16#08: numeric
-%% 16#10: subsequent	(used by the reader)
+%% 16#10: subsequent
 
 char_is_type(Ch, Mask) ->
   ChTypeTab = % indexed by [-1, 255] + 1
@@ -77,7 +78,6 @@ char_is_delimiter(Ch) -> char_is_type(Ch, 16#02).
 char_is_initial(Ch) -> char_is_type(Ch, 16#04).
 char_is_numeric(Ch) -> char_is_type(Ch, 16#08).
 char_is_subsequent(Ch) -> char_is_type(Ch, 16#10).
-char_is_eof(Ch) -> Ch =:= -1.
 
 char_value(Ch) ->
   ChValueTab = % indexed by [-1, 255] + 1
