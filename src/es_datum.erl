@@ -96,7 +96,6 @@
 
 %% API
 -export([ binary_to_string/1
-        , is_boolean/1
         , is_eof_object/1
         , is_string/1
         , is_symbol/1
@@ -112,10 +111,6 @@
         ]).
 
 %% API -------------------------------------------------------------------------
-
-%% Booleans
-
-is_boolean(X) -> erlang:is_boolean(X).
 
 %% Characters
 
