@@ -20,7 +20,24 @@
 
 -module(es_print).
 
--export([write/1, display/1]).
+-export([ display/1
+        , write/1
+        ]).
+
+-type datum() :: term().
+
+%% API -------------------------------------------------------------------------
+
+-spec display(datum()) -> ok.
+display(Term) ->
+  print(Term, _Depth = 10, _Width = 20, _IsDisplay = true).
+
+-spec write(datum()) -> ok.
+write(Term) ->
+  Infinity = infinity(),
+  print(Term, _Depth = Infinity, _Width = Infinity, _IsDisplay = false).
+
+%% Internals -------------------------------------------------------------------
 
 %% For Depth and Width limited output we need Limit values that act
 %% like finite non-negative integers with "decrement" and "is-zero"
@@ -28,14 +45,11 @@
 %% positive infinity for unlimited output.  We use "-1" as +infinity.
 
 -define(infinity, -1).
+
+infinity() -> ?infinity.
+
 decrement(?infinity) -> ?infinity;
 decrement(N) when N > 0 -> N - 1.
-
-write(Term) ->
-  print(Term, ?infinity, ?infinity, false).
-
-display(Term) ->
-  print(Term, 10, 20, true).
 
 print(_, 0, _, _) ->
   io:format("...");
@@ -69,8 +83,8 @@ print_list(Hd, Tl, WL, DepthLim, WidthLim, IsDisplay) ->
     _ ->
       io:format(" . "),
       case decrement(WL) of
-	0 -> io:format("...");
-	_ -> print(Tl, DepthLim, WidthLim, IsDisplay)
+        0 -> io:format("...");
+        _ -> print(Tl, DepthLim, WidthLim, IsDisplay)
       end
   end.
 
@@ -84,13 +98,13 @@ print_vector(Tuple, I, DepthLim, WidthLim, IsDisplay) ->
       [];
      true ->
       if I > 0 -> io:format(" ");
-	 true -> []
+         true -> []
       end,
       if I >= WidthLim ->
-	  io:format("...");
-	 true ->
-	  print(element(I + 1, Tuple), decrement(DepthLim), WidthLim, IsDisplay),
-	  print_vector(Tuple, I + 1, DepthLim, WidthLim, IsDisplay)
+          io:format("...");
+         true ->
+          print(element(I + 1, Tuple), decrement(DepthLim), WidthLim, IsDisplay),
+          print_vector(Tuple, I + 1, DepthLim, WidthLim, IsDisplay)
       end
   end.
 
@@ -135,10 +149,10 @@ print_symbol(Symbol, IsDisplay) ->
     false ->
       Pname = atom_to_list(Symbol),
       case pname_needs_escape(Pname) of
-	false ->
-	  io:format("~p", [Symbol]);
-	true ->
-	  escape_pname(Pname)
+        false ->
+          io:format("~p", [Symbol]);
+        true ->
+          escape_pname(Pname)
       end
   end.
 
