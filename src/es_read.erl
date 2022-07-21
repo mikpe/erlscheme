@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014 Mikael Pettersson
+%%%   Copyright 2014-2022 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -23,12 +23,18 @@
 
 -module(es_read).
 
--export([read/1]).
+-export([ read/1
+        ]).
 
-%%
+-type datum() :: term().
 
+%% API -------------------------------------------------------------------------
+
+-spec read(es_lexinput:lexinput()) -> datum().
 read(LI) ->
   read_dispatch(LI, token(LI), true).
+
+%% Internals -------------------------------------------------------------------
 
 read_no_eof(LI) ->
   read_dispatch_no_eof(LI, token(LI)).
@@ -66,8 +72,8 @@ read_dispatch(LI, Token, EofOK) ->
       es_datum:binary_to_string(list_to_binary(String));
     token_eof ->
       case EofOK of
-	true -> es_datum:mk_eof_object();
-	false -> erlang:throw(premature_eof)
+        true -> es_datum:mk_eof_object();
+        false -> erlang:throw(premature_eof)
       end;
     token_rparen ->
       erlang:throw(expected_datum_got_rparen);
@@ -97,8 +103,8 @@ read_list(LI, RightDelimiter, Acc) ->
     token_dot ->
       X = read_no_eof(LI),
       case token(LI) of
-	RightDelimiter ->
-	  lists:reverse(Acc, X)
+        RightDelimiter ->
+          lists:reverse(Acc, X)
       end;
     Token ->
       X = read_dispatch_no_eof(LI, Token),
@@ -116,7 +122,7 @@ read_vector(LI, Acc) ->
 
 %% return the next <token> from the <lexinput>
 %% skip "#;<whitespace><datum>" comments
-%% XXX: handle "#!{no-,}fold-case" directives here?
+%% TODO: handle "#!{no-,}fold-case" directives here?
 
 token(LI) ->
   case es_lexer:token(LI) of
