@@ -100,10 +100,7 @@ translate_call(Fun, Actuals) ->
   CerlActuals = [translate_expr(Actual) || Actual <- Actuals],
   case length(Actuals) of
     1 ->
-      %% Neither cerl, core_lint, nor core_pp reject c_apply:s with non-variables
-      %% in their function position, but the BEAM compiler (sys_core_fold) does.
-      Tmp = newvar(),
-      cerl:c_let([Tmp], CerlFun, cerl:c_apply(Tmp, CerlActuals));
+      cerl:c_apply(CerlFun, CerlActuals);
     N when N =< 10 ->
       cerl:c_call(cerl:c_atom('es_apply'), cerl:c_atom('apply'),
                   [CerlFun | CerlActuals]);
@@ -240,8 +237,3 @@ modinfo1_fname() ->
 
 wildpat() ->
   cerl:c_var('_').
-
-newvar() ->
-  %% Neither cerl, core_lint, nor core_pp reject negative numeric variable names,
-  %% but the BEAM compiler throws syntax errors on .core files containing them.
-  cerl:c_var(erlang:unique_integer([positive])).
