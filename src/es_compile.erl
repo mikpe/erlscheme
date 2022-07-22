@@ -215,7 +215,7 @@ translate_locvar(Var) ->
   cerl:c_var(Var).
 
 translate_seq(First, Next, IsToplevel) ->
-  make_seq(translate_expr(First, IsToplevel), translate_expr(Next, IsToplevel)).
+  cerl:c_seq(translate_expr(First, IsToplevel), translate_expr(Next, IsToplevel)).
 
 translate_quote(Value) ->
   %% This is a PRE for cerl:abstract/1, but may not be true for all possible
