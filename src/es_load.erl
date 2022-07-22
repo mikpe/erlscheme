@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2017 Mikael Pettersson
+%%%   Copyright 2014-2022 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -20,8 +20,16 @@
 
 -module(es_load).
 
--export([load/1, expand_and_parse/1]).
+-export([ expand_and_parse/1
+        , load/1
+        ]).
 
+-type datum() :: term().
+-type sexpr() :: term().
+
+%% API -------------------------------------------------------------------------
+
+-spec load(datum()) -> true.
 load(Name) ->
   case es_datum:is_string(Name) of
     true -> % (load "Name.scm")
@@ -30,6 +38,12 @@ load(Name) ->
       true = es_datum:is_symbol(Name),
       load_module(Name)
   end.
+
+-spec expand_and_parse(string()) -> [sexpr()].
+expand_and_parse(FileName) ->
+  lists:reverse(load(fun do_expand_and_parse/2, [], FileName)).
+
+%% Internals -------------------------------------------------------------------
 
 load_module(Name) ->
   case is_loaded(Name) of
@@ -57,9 +71,6 @@ load_file(String) ->
 
 do_eval(Datum, _Acc) ->
   es_eval:dynamic_eval(Datum).
-
-expand_and_parse(FileName) ->
-  lists:reverse(load(fun do_expand_and_parse/2, [], FileName)).
 
 do_expand_and_parse(Datum, Acc) ->
   Fun = es_gloenv:get_var('%expand-macros'),
