@@ -28,9 +28,9 @@
 
 file(Arg) ->
   FileName = binary_to_list(es_datum:string_to_binary(Arg)),
-  ASTs = es_load:expand_and_parse(FileName),
-  io:format("~p\n", [ASTs]),
-  CerlModule = translate_module(FileName, ASTs),
+  AST = es_load:module(FileName),
+  io:format("~p\n", [AST]),
+  CerlModule = translate_module(FileName, AST),
   io:format("~p\n", [CerlModule]),
   {ok, _} = core_lint:module(CerlModule),
   print_module(CerlModule).

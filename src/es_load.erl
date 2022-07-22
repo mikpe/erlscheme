@@ -20,12 +20,12 @@
 
 -module(es_load).
 
--export([ expand_and_parse/1
-        , load/1
+-export([ load/1
+        , module/1
         ]).
 
+-type ast() :: term().
 -type datum() :: term().
--type sexpr() :: term().
 
 %% API -------------------------------------------------------------------------
 
@@ -39,9 +39,10 @@ load(Name) ->
       load_module(Name)
   end.
 
--spec expand_and_parse(string()) -> [sexpr()].
-expand_and_parse(FileName) ->
-  lists:reverse(load(fun do_expand_and_parse/2, [], FileName)).
+-spec module(string()) -> ast().
+module(FileName) ->
+  Sexprs = lists:reverse(load(fun do_expand/2, [], FileName)),
+  es_parse:module(Sexprs).
 
 %% Internals -------------------------------------------------------------------
 
@@ -72,10 +73,10 @@ load_file(String) ->
 do_eval(Datum, _Acc) ->
   es_eval:dynamic_eval(Datum).
 
-do_expand_and_parse(Datum, Acc) ->
+do_expand(Datum, Acc) ->
   Fun = es_gloenv:get_var('%expand-macros'),
   Sexpr = es_eval:do_apply(Fun, [Datum]),
-  [es_parse:toplevel(Sexpr) | Acc].
+  [Sexpr | Acc].
 
 load(Fun, Acc, FileName) ->
   OldPrefix = erlang:get('es_load_prefix'),
