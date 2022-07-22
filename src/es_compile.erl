@@ -73,8 +73,6 @@ translate_expr(AST) ->
 
 translate_expr(AST, IsToplevel) ->
   case AST of
-    {'ES:CALL', Fun, Actuals} ->
-      translate_call(Fun, Actuals);
     {'ES:DEFINE', Var, Expr} when IsToplevel ->
       translate_define(Var, Expr);
     {'ES:GLOVAR', Var} ->
@@ -89,16 +87,13 @@ translate_expr(AST, IsToplevel) ->
       translate_letrec(Bindings, Body);
     {'ES:LOCVAR', Var} ->
       translate_locvar(Var);
+    {'ES:PRIMOP', PrimOp, Actuals} ->
+      translate_primop(PrimOp, Actuals);
     {'ES:SEQ', First, Next} ->
       translate_seq(First, Next, IsToplevel);
     {'ES:QUOTE', Value} ->
       translate_quote(Value)
   end.
-
-translate_call(Fun, Actuals) ->
-  CerlFun = translate_expr(Fun),
-  CerlActuals = [translate_expr(Actual) || Actual <- Actuals],
-  cerl:c_apply(CerlFun, CerlActuals).
 
 translate_define(Var, Expr) ->
   %% Synthesize "es_gloenv:enter_var(Var, Expr)".
@@ -153,6 +148,27 @@ translate_let([{Lhs, Rhs} | Bindings], Body) ->
 translate_locvar(Var) ->
   %% TODO: assumes Var is printable
   cerl:c_var(Var).
+
+translate_primop('ES:APPLY', [Fun | Args]) ->
+  CerlActuals = lists:map(fun translate_expr/1, Args),
+  case Fun of
+    {'ES:PRIMOP', 'ES:COLON', [M, F, {'ES:QUOTE', A}]} when A =:= length(Args) ->
+      cerl:c_call(translate_expr(M), translate_expr(F), CerlActuals);
+    _ ->
+      cerl:c_apply(translate_expr(Fun), CerlActuals)
+  end;
+translate_primop(PrimOp, Args0) ->
+  CerlArgs = lists:map(fun translate_expr/1, Args0),
+  case {PrimOp, CerlArgs} of
+    {'ES:COLON', [M, F, A]} -> make_fun(M, F, A);
+    {'ES:LIST', _} -> make_list(CerlArgs)
+  end.
+
+make_fun(M, F, A) ->
+  cerl:c_call(cerl:c_atom('erlang'), cerl:c_atom('make_fun'), [M, F, A]).
+
+make_list([]) -> cerl:c_nil();
+make_list([H | T]) -> cerl:c_cons(H, make_list(T)).
 
 translate_seq(First, Next, IsToplevel) ->
   cerl:c_seq(translate_expr(First, IsToplevel), translate_expr(Next, IsToplevel)).
