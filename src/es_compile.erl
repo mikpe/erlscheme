@@ -61,12 +61,7 @@ translate_defun({'ES:DEFINE', Var, {'ES:LAMBDA', Formals, Body}}) ->
   {CerlFVar, CerlFun}.
 
 translate_expr(AST) ->
-  translate_expr(AST, false).
-
-translate_expr(AST, IsToplevel) ->
   case AST of
-    {'ES:DEFINE', Var, Expr} when IsToplevel ->
-      translate_define(Var, Expr);
     {'ES:GLOVAR', Var} ->
       translate_glovar(Var);
     {'ES:IF', Pred, Then, Else} ->
@@ -82,15 +77,10 @@ translate_expr(AST, IsToplevel) ->
     {'ES:PRIMOP', PrimOp, Actuals} ->
       translate_primop(PrimOp, Actuals);
     {'ES:SEQ', First, Next} ->
-      translate_seq(First, Next, IsToplevel);
+      translate_seq(First, Next);
     {'ES:QUOTE', Value} ->
       translate_quote(Value)
   end.
-
-translate_define(Var, Expr) ->
-  %% Synthesize "es_gloenv:enter_var(Var, Expr)".
-  cerl:c_call(cerl:c_atom('es_gloenv'), cerl:c_atom('enter_var'),
-              [cerl:c_atom(Var), translate_expr(Expr)]).
 
 translate_glovar(Var) ->
   %% Synthesize "es_gloenv:get_var(Var)".
@@ -162,8 +152,8 @@ make_fun(M, F, A) ->
 make_list([]) -> cerl:c_nil();
 make_list([H | T]) -> cerl:c_cons(H, make_list(T)).
 
-translate_seq(First, Next, IsToplevel) ->
-  cerl:c_seq(translate_expr(First, IsToplevel), translate_expr(Next, IsToplevel)).
+translate_seq(First, Next) ->
+  cerl:c_seq(translate_expr(First), translate_expr(Next)).
 
 translate_quote(Value) ->
   %% This is a PRE for cerl:abstract/1, but may not be true for all possible
