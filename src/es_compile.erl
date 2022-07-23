@@ -50,7 +50,7 @@ translate_module({'ES:MODULE', ModuleName, Exports, Defuns}) ->
   FEnv = build_fenv(Defuns),
   %% Translate each top-level (define (f ...) ...)
   %% Also define module_info/0 and module_info/1.
-  CerlDefuns = [modinfo0_def(ModuleName), modinfo1_def(ModuleName) |
+  CerlDefuns = [modinfo0_def(CerlModuleName), modinfo1_def(CerlModuleName) |
                 lists:map(fun(Defun) -> translate_defun(Defun, FEnv) end, Defuns)],
   %% Assemble the module.
   cerl:c_module(CerlModuleName, CerlExports, CerlDefuns).
