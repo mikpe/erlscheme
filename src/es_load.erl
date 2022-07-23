@@ -47,23 +47,7 @@ module(FileName) ->
 %% Internals -------------------------------------------------------------------
 
 load_module(Name) ->
-  case is_loaded(Name) of
-    true ->
-      true;
-    false ->
-      Name:'$es_init'(),
-      set_is_loaded(Name),
-      true
-  end.
-
-is_loaded(Name) ->
-  case es_gloenv:lookup(Name, '%loaded') of
-    {value, 'true'} -> true;
-    _ -> false
-  end.
-
-set_is_loaded(Name) ->
-  es_gloenv:insert(Name, '%loaded', true).
+  code:is_loaded(Name) orelse begin {module, _} = code:load_file(Name), true end.
 
 load_file(String) ->
   FileName = binary_to_list(es_datum:string_to_binary(String)),
