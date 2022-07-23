@@ -29,18 +29,27 @@
 
 -spec file(datum()) -> ok.
 file(Arg) ->
+  file(Arg, _Opts = []).
+
+-spec file(datum(), proplists:proplist()) -> ok.
+file(Arg, Opts) ->
   FileName = binary_to_list(es_datum:string_to_binary(Arg)),
   AST = es_load:module(FileName),
-  io:format("~p\n", [AST]),
+  BaseName = filename:basename(FileName, ".scm"),
+  case proplists:get_bool(save_ast, Opts) of
+    true ->
+      ok = file:write_file(BaseName ++ ".ast", io_lib:format("~p\n", [AST]));
+    false ->
+      ok
+  end,
   CerlModule = translate_module(AST),
-  io:format("~p\n", [CerlModule]),
   {ok, _} = core_lint:module(CerlModule),
-  print_module(CerlModule).
+  CoreFile = BaseName ++ ".core",
+  ok = file:write_file(CoreFile, io_lib:format("~s\n", [core_pp:format(CerlModule)])),
+  {ok, _} = compile:file(CoreFile, [from_core, verbose,report_errors,report_warnings]),
+  ok.
 
 %% Internals -------------------------------------------------------------------
-
-print_module(CerlModule) ->
-  io:format("~s\n", [core_pp:format(CerlModule)]).
 
 translate_module({'ES:MODULE', ModuleName, Exports, Defuns}) ->
   CerlModuleName = cerl:c_atom(ModuleName),
