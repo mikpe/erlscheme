@@ -32,7 +32,7 @@ file(Arg) ->
   FileName = binary_to_list(es_datum:string_to_binary(Arg)),
   AST = es_load:module(FileName),
   io:format("~p\n", [AST]),
-  CerlModule = translate_module(FileName, AST),
+  CerlModule = translate_module(AST),
   io:format("~p\n", [CerlModule]),
   {ok, _} = core_lint:module(CerlModule),
   print_module(CerlModule).
@@ -42,31 +42,23 @@ file(Arg) ->
 print_module(CerlModule) ->
   io:format("~s\n", [core_pp:format(CerlModule)]).
 
-translate_module(FileName, ASTs) ->
-  %% Module name: derived from FileName (foo.scm -> foo).
-  ModuleName = cerl:c_atom(filename:basename(FileName, ".scm")),
-  %% Exports: ['$es_init/0', module_info/0, module_info/1]
-  FVarInit = cerl:c_fname('$es_init', 0),
-  Exports = [FVarInit, modinfo0_fname(), modinfo1_fname()],
-  %% Definitions: FVarInit = fun() -> Body end.
-  %% where the Body evaluates the ASTs and records each
-  %% top-level (define ...) as a global variable.
+translate_module({'ES:MODULE', ModuleName, Exports, Defuns}) ->
+  CerlModuleName = cerl:c_atom(ModuleName),
+  %% Exports: add module_info/0 and module_info/1
+  CerlExports = [modinfo0_fname(), modinfo1_fname() | lists:map(fun translate_export/1, Exports)],
+  %% Translate each top-level (define (f ...) ...)
   %% Also define module_info/0 and module_info/1.
-  Body = translate_toplevel(ASTs),
-  FunInit = cerl:c_fun([], Body),
-  Definitions = [{FVarInit, FunInit}, modinfo0_def(ModuleName), modinfo1_def(ModuleName)],
+  CerlDefuns = [modinfo0_def(ModuleName), modinfo1_def(ModuleName) | lists:map(fun translate_defun/1, Defuns)],
   %% Assemble the module.
-  cerl:c_module(ModuleName, Exports, Definitions).
+  cerl:c_module(CerlModuleName, CerlExports, CerlDefuns).
 
-translate_toplevel(ASTs) ->
-  Cerls = [translate_expr(AST, true) || AST <- ASTs],
-  make_seq(Cerls).
+translate_export({F, A}) ->
+  cerl:c_fname(F, A).
 
-make_seq([]) -> cerl:c_nil(); % #!undefined
-make_seq([H | T]) -> make_seq(H, T).
-
-make_seq(X, []) -> X;
-make_seq(X, [Y | Z]) -> cerl:c_seq(X, make_seq(Y, Z)).
+translate_defun({'ES:DEFINE', Var, {'ES:LAMBDA', Formals, Body}}) ->
+  CerlFVar = cerl:c_fname(Var, length(Formals)),
+  CerlFun = translate_lambda(Formals, Body),
+  {CerlFVar, CerlFun}.
 
 translate_expr(AST) ->
   translate_expr(AST, false).
