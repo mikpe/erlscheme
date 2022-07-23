@@ -20,12 +20,14 @@
 
 -module(es_compile).
 
--export([file/1]).
+-export([ file/1
+        ]).
 
-%%% TODO: extend es_parse to recognize (module Module (Function*))?
-%%% TODO: perhaps extend es_load to handle the module form, would
-%%%       require persistent local scopes for global variables?
+-type datum() :: term().
 
+%% API -------------------------------------------------------------------------
+
+-spec file(datum()) -> ok.
 file(Arg) ->
   FileName = binary_to_list(es_datum:string_to_binary(Arg)),
   AST = es_load:module(FileName),
@@ -34,6 +36,8 @@ file(Arg) ->
   io:format("~p\n", [CerlModule]),
   {ok, _} = core_lint:module(CerlModule),
   print_module(CerlModule).
+
+%% Internals -------------------------------------------------------------------
 
 print_module(CerlModule) ->
   io:format("~s\n", [core_pp:format(CerlModule)]).
@@ -102,30 +106,30 @@ translate_call(Fun, Actuals) ->
       cerl:c_let([Tmp], CerlFun, cerl:c_apply(Tmp, CerlActuals));
     N when N =< 10 ->
       cerl:c_call(cerl:c_atom('es_apply'), cerl:c_atom('apply'),
-		  [CerlFun | CerlActuals]);
+                  [CerlFun | CerlActuals]);
     _ ->
       ListOfActuals = make_list(CerlActuals),
       cerl:c_call(cerl:c_atom('es_apply'), cerl:c_atom('applyN'),
-		  [CerlFun, ListOfActuals])
+                  [CerlFun, ListOfActuals])
   end.
 
 make_list([]) -> cerl:c_nil();
 make_list([H | T]) -> cerl:c_cons(H, make_list(T)).
 
 translate_define(Var, Expr) ->
-  %% Synthesize `es_gloenv:enter_var(Var, Expr)'.
+  %% Synthesize "es_gloenv:enter_var(Var, Expr)".
   cerl:c_call(cerl:c_atom('es_gloenv'), cerl:c_atom('enter_var'),
-	      [cerl:c_atom(Var), translate_expr(Expr)]).
+              [cerl:c_atom(Var), translate_expr(Expr)]).
 
 translate_glovar(Var) ->
-  %% Synthesize `es_gloenv:get_var(Var)'.
+  %% Synthesize "es_gloenv:get_var(Var)".
   cerl:c_call(cerl:c_atom('es_gloenv'), cerl:c_atom('get_var'), [cerl:c_atom(Var)]).
 
 translate_if(Pred, Then, Else) ->
-  %% Synthesize `case Pred of false -> Else; _ -> Then end'.
+  %% Synthesize "case Pred of false -> Else; _ -> Then end".
   cerl:c_case(translate_expr(Pred),
-	      [cerl:c_clause([cerl:c_atom('false')], translate_expr(Else)),
-	       cerl:c_clause([wildpat()], translate_expr(Then))]).
+              [cerl:c_clause([cerl:c_atom('false')], translate_expr(Else)),
+               cerl:c_clause([wildpat()], translate_expr(Then))]).
 
 translate_lambda(Formals, Body) ->
   assemble_lambda(translate_formals(Formals), translate_expr(Body)).
@@ -147,21 +151,21 @@ assemble_lambda_varargs(ListPattern, Body) -> % accept vararg or non-vararg para
   Var1 = cerl:c_var(1), % '_1'
   Var2 = cerl:c_var(2), % '_2'
   cerl:c_fun([Var1],
-	     cerl:c_case(cerl:c_case(Var1,
-				     [cerl:c_clause([cerl:c_tuple_skel([cerl:c_atom('$argv'), Var2])], Var2),
-				      cerl:c_clause([wildpat()], cerl:c_cons(Var1, cerl:c_nil()))]),
-			 [cerl:c_clause([ListPattern], Body),
-			  cerl:c_clause([wildpat()],
-					cerl:c_call(cerl:c_atom('erlang'), cerl:c_atom('error'), [cerl:c_atom('badarity')]))])).
+             cerl:c_case(cerl:c_case(Var1,
+                                     [cerl:c_clause([cerl:c_tuple_skel([cerl:c_atom('$argv'), Var2])], Var2),
+                                      cerl:c_clause([wildpat()], cerl:c_cons(Var1, cerl:c_nil()))]),
+                         [cerl:c_clause([ListPattern], Body),
+                          cerl:c_clause([wildpat()],
+                                        cerl:c_call(cerl:c_atom('erlang'), cerl:c_atom('error'), [cerl:c_atom('badarity')]))])).
 
 assemble_lambda_1(Var, Body) -> % an arity-1 lambda must reject a varargs parameter
   %% Synthesize:
   %% fun (Var) -> case Var of {'$argv', _} -> erlang:error(badarity); _ -> Body end
   cerl:c_fun([Var],
-	     cerl:c_case(Var,
-			 [cerl:c_clause([cerl:c_tuple_skel([cerl:c_atom('$argv'), wildpat()])],
-					cerl:c_call(cerl:c_atom('erlang'), cerl:c_atom('error'), [cerl:c_atom('badarity')])),
-			  cerl:c_clause([wildpat()], Body)])).
+             cerl:c_case(Var,
+                         [cerl:c_clause([cerl:c_tuple_skel([cerl:c_atom('$argv'), wildpat()])],
+                                        cerl:c_call(cerl:c_atom('erlang'), cerl:c_atom('error'), [cerl:c_atom('badarity')])),
+                          cerl:c_clause([wildpat()], Body)])).
 
 assemble_lambda_N(Vars, Body) -> % any fixed arity except 1
   cerl:c_fun(Vars, Body).
@@ -178,7 +182,7 @@ make_varargs_pattern(Rest, [T | H]) ->
 
 translate_letrec(Bindings, Body) ->
   assemble_letrec([translate_letrec_binding(Binding) || Binding <- Bindings],
-		  translate_expr(Body)).
+                  translate_expr(Body)).
 
 translate_letrec_binding({Var, Formals, Body}) ->
   CerlFormals = translate_formals(Formals),
@@ -192,7 +196,7 @@ translate_letrec_binding({Var, Formals, Body}) ->
 assemble_letrec(Bindings, Body) ->
   FVars = [FVar || {FVar, _Formals, _Body} <- Bindings],
   cerl:c_letrec([assemble_letrec_binding(FVars, Binding) || Binding <- Bindings],
-		assemble_subst(FVars, Body)).
+                assemble_subst(FVars, Body)).
 
 assemble_letrec_binding(FVars, {FVar, Formals, Body}) ->
   {FVar, assemble_lambda(Formals, assemble_subst(FVars, Body))}.
