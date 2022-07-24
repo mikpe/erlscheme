@@ -15,11 +15,32 @@
 ErlScheme
 =========
 
-ErlScheme is an implementation of the Scheme programming language, running
-on the Erlang/OTP virtual machine.
+ErlScheme is an implementation of the Scheme programming language for the
+Erlang/OTP virtual machine.
 
-ErlScheme aims for Scheme R7RS compatibility, but sacrifies some Scheme
-features:
+ErlScheme aims for Scheme R7RS compatibility, with extensions for Erlang
+interoperability.  ErlScheme added features include:
+
+- Calls to Erlang code.
+
+  * (M:F A1 ... An) calls function F of arity n exported from module M
+
+  * (lambda M:F/A) evaluates to function F of arity A exported from module M
+
+- Separately-compiled modules.  A module like
+
+```
+  (module meaning)
+  (export (/ life 0)) ; or (export life/0)
+  (define (life) 42)
+```
+
+  in a file "meaning.scm" can be compiled to "meaning.beam", and then called
+  from ErlScheme as (meaning:life) or from Erlang as meaning:life().
+
+- Erlang processes and message passing.
+
+Some Scheme feature are not supported:
 
 - No mutable aggregate data structures.  This means no set-car!, string-set!,
   vector-set!, or similar procedures.  This is due to inherent limitations
@@ -36,16 +57,6 @@ features:
 - No variadic functions.  The Erlang/OTP VM does not support this feature,
   and emulating it requires changing calling conventions which ends up making
   interoperability with Erlang code more difficult.
-
-ErlScheme also adds some features:
-
-- Interoperability with Erlang code.
-
-  * (M:F A1 ... An) calls function F of arity n exported from module M
-
-  * (lambda M:F/A) evaluates to function F of arity A exported from module M
-
-- Erlang processes and message passing.
 
 ErlScheme is a Work In Progress
 ===============================
@@ -65,6 +76,3 @@ Omissions:
 
 Planned extensions:
 - Write more of the system in ErlScheme itself.
-- Common Lisp like package namespaces for symbols.
-- Standard ML like "ref" datatype for singleton mutable cells with an explicit
-  dereference operation.
