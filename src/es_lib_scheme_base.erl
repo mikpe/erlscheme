@@ -115,7 +115,7 @@ listp(_) -> false.
   es_datum:is_vector(X).
 
 'eval'(X) ->
-  es_eval:primitive_eval(X).
+  es_eval:eval(X).
 
 'getprop'(Name, Tag) ->
   case es_gloenv:lookup(Name, Tag) of

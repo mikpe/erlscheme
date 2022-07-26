@@ -55,11 +55,10 @@ load_file(String) ->
   true.
 
 do_eval(Datum, _Acc) ->
-  es_eval:dynamic_eval(Datum).
+  es_eval:eval(Datum).
 
 do_expand(Datum, Acc) ->
-  Fun = es_gloenv:get_var('%expand-macros'),
-  Sexpr = es_eval:do_apply(Fun, [Datum]),
+  Sexpr = es_macros:expand(Datum),
   [Sexpr | Acc].
 
 load(Fun, Acc, FileName) ->

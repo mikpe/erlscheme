@@ -34,8 +34,7 @@
 -module(es_eval).
 
 -export([ do_apply/2
-        , dynamic_eval/1
-        , primitive_eval/1
+        , eval/1
         ]).
 
 -type sexpr() :: term().
@@ -47,13 +46,9 @@
 do_apply(Fun, Actuals) ->
   erlang:apply(Fun, Actuals).
 
--spec dynamic_eval(sexpr()) -> datum().
-dynamic_eval(Sexpr) ->
-  do_apply(es_gloenv:get_var('eval'), [Sexpr]).
-
--spec primitive_eval(sexpr()) -> datum().
-primitive_eval(Sexpr) ->
-  interpret(es_parse:toplevel(Sexpr), es_env:empty()).
+-spec eval(sexpr()) -> datum().
+eval(Sexpr) ->
+  interpret(es_parse:toplevel(es_macros:expand(Sexpr)), es_env:empty()).
 
 %% Internals (AST interpreter) -------------------------------------------------
 

@@ -33,6 +33,7 @@ init() ->
     io:format("Welcome to ErlScheme version ~s~n", [?VSN]),
     es_gloenv:init(),
     es_lib_scheme_base:init(),
+    es_macros:init(),
     es_load_init(),
     P = es_raw_port:open_stdin(),
     es_lexinput:open(P, "<stdin>")
@@ -63,7 +64,7 @@ rep(N, LI) ->
     case es_datum:is_eof_object(Sexpr) of
       false ->
         erlang:put('es_load_prefix', "."),
-        Term = es_eval:dynamic_eval(Sexpr),
+        Term = es_eval:eval(Sexpr),
         es_print:display(Term),
         io:format("~n");
       true ->
