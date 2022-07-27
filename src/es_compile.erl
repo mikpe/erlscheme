@@ -46,7 +46,7 @@ file(Arg, Opts) ->
   {ok, _} = core_lint:module(CerlModule),
   CoreFile = BaseName ++ ".core",
   ok = file:write_file(CoreFile, io_lib:format("~s\n", [core_pp:format(CerlModule)])),
-  {ok, _} = compile:file(CoreFile, [from_core, verbose,report_errors,report_warnings]),
+  {ok, _} = compile:file(CoreFile, [from_core, verbose, report_errors, report_warnings]),
   ok.
 
 %% Internals -------------------------------------------------------------------
