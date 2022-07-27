@@ -179,7 +179,7 @@ parse_begin(Tl, Env, IsToplevel) ->
     [Expr | Rest] ->
       {'ES:SEQ', parse(Expr, Env, IsToplevel), parse_begin(Rest, Env, IsToplevel)};
     [] when IsToplevel ->       % (begin) is valid at the top-level
-      {'EQ:QUOTE', []};         % TODO: #!undefined
+      {'ES:QUOTE', es_datum:unspecified()};
     _ ->
       erlang:throw({bad_begin, Tl})
   end.
@@ -219,7 +219,7 @@ parse_if(Tl, Env) ->
     [Pred, Then, Else] ->
       {'ES:IF', parse(Pred, Env), parse(Then, Env), parse(Else, Env)};
     [Pred, Then] ->
-      {'ES:IF', parse(Pred, Env), parse(Then, Env), {'ES:QUOTE', []}}; % TODO: #!undefined
+      {'ES:IF', parse(Pred, Env), parse(Then, Env), {'ES:QUOTE', es_datum:unspecified()}};
     _ ->
       erlang:throw({bad_if, Tl})
   end.

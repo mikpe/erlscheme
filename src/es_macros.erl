@@ -176,9 +176,8 @@ expand_body_scan(Body = [_ | _], Bindings) ->
   end.
 
 %% Sometimes we need to generate an unspecified value.
-%% We don't have a reserved value for that, so we use '().
 expand_unspecified() ->
-  ['quote', []].
+  ['quote', es_datum:unspecified()].
 
 expand_let_binding([Var, Expr]) ->
   [Var, expand(Expr)].

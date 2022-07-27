@@ -61,6 +61,11 @@
 %%% referencing es_datum:the_eof_object/0.
 %%% R5RS did not require this to be a distinct type.
 %%%
+%%% unspecified         []
+%%%
+%%% Scheme specifies that certain expressions evaluate to an
+%%% unspecified value.  For simplicity we use '() for that.
+%%%
 %%% string              binary()
 %%% bytevector          <NYI -- should be binary()>
 %%%
@@ -104,6 +109,7 @@
         , list_to_vector/1
         , mk_eof_object/0
         , string_to_binary/1
+        , unspecified/0
         ]).
 
 %% private exports
@@ -153,3 +159,7 @@ is_symbol(X) -> is_atom(X) andalso not erlang:is_boolean(X).
 is_vector(X) -> is_tuple(X).
 
 list_to_vector(L) -> erlang:list_to_tuple(L).
+
+%% Unspecified
+
+unspecified() -> [].
