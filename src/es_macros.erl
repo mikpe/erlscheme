@@ -51,6 +51,8 @@ expand(Sexpr) ->
         Expander ->
           es_eval:do_apply(Expander, [Sexpr])
       end;
+    [_ | _] ->
+      expand_list(Sexpr);
     _ ->
       Sexpr
   end.
