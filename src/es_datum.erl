@@ -134,7 +134,7 @@ is_eof_object(X) ->
 %% This has to return an exported fun to make fun_info(_, name) well-defined.
 mk_eof_object() -> fun ?MODULE:?the_eof_object/0.
 
-?the_eof_object() -> [].
+?the_eof_object() -> error("eof-object was called").
 
 %% Strings
 
