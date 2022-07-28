@@ -22,151 +22,198 @@
 %%% - recognize special syntactic forms and propagate macro expansion to
 %%%   nested <expr>s, while not expanding parts that aren't <expr>
 %%% - optionally lower special syntactic forms to simpler core constructs
-%%%
-%%% TODO:
-%%% - proper scoping / syntactic environment
 
 -module(es_macros).
 
--export([ expand/1
-        , init/0
+%% compiler API
+-export([ expand_toplevel/2
+        , initial/0
         ]).
 
--type sexpr() :: term().
-
-%% API -------------------------------------------------------------------------
-
--spec expand(sexpr()) -> sexpr().
-expand(Sexpr) ->
-  case Sexpr of
-    [Hd | Tl] when is_atom(Hd) ->
-      case get_syntax(Hd) of
-        false ->
-          case get_macro(Hd) of
-            false ->
-              [Hd | expand_list(Tl)];
-            Expander ->
-              expand(Expander(Sexpr))
-          end;
-        Expander ->
-          Expander(Sexpr)
-      end;
-    [_ | _] ->
-      expand_list(Sexpr);
-    _ ->
-      Sexpr
-  end.
-
--spec init() -> ok.
-init() ->
-  put_macro('macro', fun expand_macro/1),
-  put_macro('compiler-syntax', fun expand_compiler_syntax/1),
-  put_syntax('quote', fun expand_quote/1),
-  put_syntax('set!', fun 'expand_set!'/1),
-  put_syntax('cond', fun expand_cond/1),
-  put_syntax('case', fun expand_case/1),
-  put_syntax('lambda', fun expand_lambda/1),
-  put_syntax('define', fun expand_define/1),
-  put_syntax('letrec', fun expand_let_or_letrec/1),
-  put_syntax('let*', fun 'expand_let*'/1),
-  put_syntax('let', fun expand_let/1),
-  put_macro('quasiquote', fun expand_quasiquote/1),
-  ok.
-
-%% Built-in macro and syntax expanders -----------------------------------------
+%% runtime API
+-export([ enter_macro/2
+        , enter_syntax/2
+        ]).
 
 -define(macro, '%macro').
 -define(syntax, '%syntax').
 
+-type sexpr() :: term().
+-type expander() :: fun((sexpr(), synenv()) -> {sexpr(), synenv()}).
+-type synenv() :: es_synenv:synenv(). % atom() -> expander()
+
+%% API -------------------------------------------------------------------------
+
+-spec expand_toplevel(sexpr(), synenv()) -> {sexpr(), synenv()}.
+expand_toplevel(Sexpr, SynEnv) ->
+  case Sexpr of
+    [Hd | Tl] when is_atom(Hd) ->
+      case find_expander(SynEnv, Hd) of
+        false ->
+          {[Hd | expand_list(Tl, SynEnv)], SynEnv};
+        Expander ->
+          Expander(Sexpr, SynEnv)
+      end;
+    [_ | _] ->
+      {expand_list(Sexpr, SynEnv), SynEnv};
+    _ ->
+      {Sexpr, SynEnv}
+  end.
+
+-spec initial() -> [{atom(), expander()}].
+initial() ->
+  lists:map(
+    fun ({Name, Type, Expander}) -> {Name, wrap_expander(Type, Expander)} end,
+    [ {'begin', ?syntax, fun expand_begin/2}
+    , {'case', ?syntax, fun expand_case/2}
+    , {'compiler-syntax', ?syntax, fun expand_compiler_syntax/2}
+    , {'cond', ?syntax, fun expand_cond/2}
+    , {'define', ?syntax, fun expand_define/2}
+    , {'lambda', ?syntax, fun expand_lambda/2}
+    , {'let', ?syntax, fun expand_let/2}
+    , {'let*', ?syntax, fun 'expand_let*'/2}
+    , {'letrec', ?syntax, fun expand_let_or_letrec/2}
+    , {'macro', ?syntax, fun expand_macro/2}
+    , {'quasiquote', ?macro, fun expand_quasiquote/2}
+    , {'quote', ?syntax, fun expand_quote/2}
+    , {'set!', ?syntax, fun 'expand_set!'/2}
+    ]).
+
+-spec enter_macro(atom(), expander()) -> true.
+enter_macro(Name, Expander) ->
+  insert_expander(Name, wrap_expander(?macro, Expander)).
+
+-spec enter_syntax(atom(), expander()) -> true.
+enter_syntax(Name, Expander) ->
+  insert_expander(Name, wrap_expander(?syntax, Expander)).
+
+%% Built-in macro and syntax expanders -----------------------------------------
+
 %% (macro <name> <expander>)
-expand_macro([_Macro, Name, Expander]) ->
-  ['putprop', ['quote', Name], ['quote', ?macro], Expander].
+%% only valid at toplevel (repl, module, or body)
+expand_macro([_Macro, Name, Expr], SynEnv) ->
+  case es_synenv:is_gloenv(SynEnv) of
+    true ->
+      Expander = expand_expr(Expr, SynEnv),
+      {[['quote', 'es_macros'], ':', ['quote', 'enter_macro'], ['quote', Name], Expander], SynEnv};
+    false ->
+      {Expander, _SynEnv} = es_eval:eval(Expr, SynEnv),
+      {['begin'], bind_expander({Name, ?macro, Expander}, SynEnv)}
+  end.
 
 %% (compiler-syntax <name> <expander>)
-expand_compiler_syntax([_CompilerSyntax, Name, Expander]) ->
-  ['putprop', ['quote', Name], ['quote', ?syntax], Expander].
+%% only valid at toplevel (repl, module, or body)
+expand_compiler_syntax([_CompilerSyntax, Name, Expr], SynEnv) ->
+  case es_synenv:is_gloenv(SynEnv) of
+    true ->
+      Expander = expand_expr(Expr, SynEnv),
+      {[['quote', 'es_macros'], ':', ['quote', 'enter_syntax'], ['quote', Name], Expander], SynEnv};
+    false ->
+      {Expander, _SynEnv} = es_eval:eval(Expr, SynEnv),
+      {['begin'], bind_expander({Name, ?syntax, Expander}, SynEnv)}
+  end.
 
 %% (quote <datum>)
-expand_quote([_Quote, _] = Sexpr) ->
-  Sexpr.
+expand_quote([_Quote, _] = Sexpr, SynEnv) ->
+  {Sexpr, SynEnv}.
 
 %% (set! <var> <expr>)
-'expand_set!'([Set, Var, Val]) ->
-  [Set, Var, expand(Val)].
+'expand_set!'([Set, Var, Val], SynEnv) ->
+  {[Set, Var, expand_expr(Val, SynEnv)], SynEnv}.
 
 %% (cond <clause>+)
-expand_cond([_Cond, Clause | Rest]) ->
-  expand_cond(Clause, Rest).
+expand_cond([_Cond, Clause | Rest], SynEnv) ->
+  {expand_cond(Clause, Rest, SynEnv), SynEnv}.
 
-expand_cond(['else' | Exprs], []) ->
+expand_cond(['else' | Exprs], [], SynEnv) ->
   %% TODO: R7RS states that (cond (else <exprs>)) reduces to (begin <exprs>), but
   %% I think that's wrong since (begin ..) is special in <toplevel> and <body>,
   %% allowing <exprs> to insert internal definitions in the surrounding context.
-  ['begin' | expand_list(Exprs)];
-expand_cond([Test], Rest) ->
+  ['begin' | expand_list(Exprs, SynEnv)];
+expand_cond([Test], Rest, SynEnv) ->
   %% TODO: generate (let ((<var> <test>)) (if <var> <var> <rest of cond>)) directly
-  ['or', expand(Test), expand_cond_rest(Rest)];
-expand_cond([Test | Exprs], Rest) ->
+  ['or', expand_expr(Test, SynEnv), expand_cond_rest(Rest, SynEnv)];
+expand_cond([Test | Exprs], Rest, SynEnv) ->
   %% TODO: this fails to handle (<test> => <expr>) which should become something
   %% like (let ((<var> <test>)) (if <var> (<expr> <var>) <rest of cond>)).
-  ['if', expand(Test), ['begin' | expand_list(Exprs)], expand_cond_rest(Rest)].
+  ['if', expand_expr(Test, SynEnv), ['begin' | expand_list(Exprs, SynEnv)], expand_cond_rest(Rest, SynEnv)].
 
-expand_cond_rest([Clause | Rest]) -> expand_cond(Clause, Rest);
-expand_cond_rest([]) -> expand_unspecified().
+expand_cond_rest([Clause | Rest], SynEnv) -> expand_cond(Clause, Rest, SynEnv);
+expand_cond_rest([], _SynEnv) -> expand_unspecified().
 
 %% (case <expr> <clause>+)
-expand_case([Case, Key, Clause | Rest]) ->
-  [Case, expand(Key) | expand_case(Clause, Rest)].
+expand_case([Case, Key, Clause | Rest], SynEnv) ->
+  {[Case, expand_expr(Key, SynEnv) | expand_case(Clause, Rest, SynEnv)], SynEnv}.
 
-expand_case(['else' | Exprs], []) ->
-  ['else' | expand_list(Exprs)];
-expand_case([Datums | Exprs], Rest) ->
-  [[Datums | expand_list(Exprs)] | expand_case_rest(Rest)].
+expand_case(['else' | Exprs], [], SynEnv) ->
+  ['else' | expand_list(Exprs, SynEnv)];
+expand_case([Datums | Exprs], Rest, SynEnv) ->
+  [[Datums | expand_list(Exprs, SynEnv)] | expand_case_rest(Rest, SynEnv)].
 
-expand_case_rest([Clause | Rest]) -> expand_case(Clause , Rest);
-expand_case_rest([]) -> expand_unspecified().
+expand_case_rest([Clause | Rest], SynEnv) -> expand_case(Clause , Rest, SynEnv);
+expand_case_rest([], _SynEnv) -> expand_unspecified().
 
 %% (lambda <formals> <body>+)
-expand_lambda([Lambda, Formals | Body]) ->
-  [Lambda, Formals | expand_body(Body)].
+expand_lambda([Lambda, Formals | Body], SynEnv) ->
+  SynEnvBody = unbind_vars(Formals, nested(SynEnv)),
+  {[Lambda, Formals | expand_body(Body, SynEnvBody)], SynEnv}.
 
 %% (define <var> <expr>)
 %% (define (<var> <formals>*) <body>+)
-expand_define([Define, [Var | Formals] | Body]) ->
-  [Define, Var, ['lambda', Formals | expand_body(Body)]];
-expand_define([Define, Var, Val]) ->
-  [Define, Var, expand(Val)].
+expand_define([Define, [Var | Formals] | Body], SynEnv) ->
+  {Expanded, _SynEnv} = expand_lambda(['lambda', Formals | Body], SynEnv),
+  {[Define, Var, Expanded], unbind_var(Var, SynEnv)};
+expand_define([Define, Var, Val], SynEnv) ->
+  {[Define, Var, expand_expr(Val, SynEnv)], unbind_var(Var, SynEnv)}.
 
 %% (let <bindings> <body>+)
 %% (letrec <bindings> <body>+)
-expand_let_or_letrec([LetOrLetRec, Bindings | Body]) ->
-  [LetOrLetRec, lists:map(fun expand_let_binding/1, Bindings) | expand_body(Body)].
+expand_let_or_letrec([LetOrLetRec, Bindings | Body], SynEnv) ->
+  Vars = lists:map(fun ([Var, _Init]) -> Var end, Bindings),
+  SynEnvBody = unbind_vars(Vars, nested(SynEnv)),
+  {[LetOrLetRec,
+    lists:map(fun ([Var, Init]) -> [Var, expand_expr(Init, SynEnvBody)] end, Bindings) |
+    expand_body(Body, SynEnvBody)],
+   SynEnv}.
 
 %% (let* <bindings> <body>+)
-'expand_let*'([_LetStar, Bindings | Body]) ->
-  'expand_let*'(Bindings, Body).
+'expand_let*'([_LetStar, Bindings | Body], SynEnv) ->
+  {'expand_let*'(Bindings, Body, SynEnv), SynEnv}.
 
-'expand_let*'([], Body) -> ['let', [] | expand_body(Body)];
-'expand_let*'([Binding | Bindings], Body) ->
-  ['let', [expand_let_binding(Binding)], 'expand_let*'(Bindings, Body)].
+'expand_let*'([], Body, SynEnv) -> ['let', [] | expand_body(Body, nested(SynEnv))];
+'expand_let*'([[Var, Init] | Bindings], Body, SynEnv) ->
+  ['let', [[Var, expand_expr(Init, SynEnv)]], 'expand_let*'(Bindings, Body, do_unbind_var(Var, nested(SynEnv)))].
 
 %% (let <bindings> <body>+)
 %% (let <name> <bindings> <body>+)
-expand_let([_Let, Name, Bindings | Body]) when is_atom(Name) ->
+expand_let([_Let, Name, Bindings | Body], SynEnv) when is_atom(Name) ->
   Formals = lists:map(fun ([Var, _Init]) -> Var end, Bindings),
-  Inits = lists:map(fun ([_Var, Init]) -> expand(Init) end, Bindings),
-  Lambda = ['lambda', Formals | expand_body(Body)],
-  [['letrec', [[Name, Lambda]], Name] | Inits];
-expand_let(Form) -> expand_let_or_letrec(Form).
+  Inits = lists:map(fun ([_Var, Init]) -> expand_expr(Init, SynEnv) end, Bindings),
+  SynEnvBody = unbind_vars([Name | Formals], nested(SynEnv)),
+  Lambda = ['lambda', Formals | expand_body(Body, SynEnvBody)],
+  {[['letrec', [[Name, Lambda]], Name] | Inits], SynEnv};
+expand_let(Form, SynEnv) -> expand_let_or_letrec(Form, SynEnv).
+
+%% (begin <forms>..)
+%% Begin is special since it essentially "disappears" in <toplevel> and <body>.
+%% For those contexts it needs an expander that propagates SynEnv updates.
+expand_begin([Begin | Forms], SynEnv) ->
+  {NewForms, NewSynEnv} = expand_toplevel_forms(Forms, SynEnv, []),
+  {[Begin | NewForms], NewSynEnv}.
 
 %% Expander helpers ------------------------------------------------------------
 
-expand_list(List) ->
-  lists:map(fun expand/1, List).
+expand_expr(Sexpr, SynEnv) ->
+  {Expanded, _} = expand_toplevel(Sexpr, SynEnv),
+  Expanded.
+
+expand_list(List, SynEnv) ->
+  lists:map(fun (Sexpr) -> expand_expr(Sexpr, SynEnv) end, List).
 
 %% expand (define ...) forms at the start of a body to (letrec ...)
-expand_body(Body) ->
-  expand_body_scan(expand_list(Body), []).
+expand_body(Body, SynEnv) ->
+  {ExpandedBody, _NewSynEnv} = expand_toplevel_forms(Body, SynEnv, []),
+  expand_body_scan(ExpandedBody, []).
 
 expand_body_scan([['define', Var, Val] | Body], Bindings) ->
   expand_body_scan(Body, [[Var, Val] | Bindings]);
@@ -180,12 +227,15 @@ expand_body_scan(Body = [_ | _], Bindings) ->
     [_|_] -> ['letrec', Bindings | Body]
   end.
 
+expand_toplevel_forms([Form | Forms], SynEnv, Acc) ->
+  {Expanded, NewSynEnv} = expand_toplevel(Form, SynEnv),
+  expand_toplevel_forms(Forms, NewSynEnv, [Expanded | Acc]);
+expand_toplevel_forms(_Forms = [], SynEnv, Acc) ->
+  {lists:reverse(Acc), SynEnv}.
+
 %% Sometimes we need to generate an unspecified value.
 expand_unspecified() ->
   ['quote', es_datum:unspecified()].
-
-expand_let_binding([Var, Expr]) ->
-  [Var, expand(Expr)].
 
 %% Quasiquote expander ---------------------------------------------------------
 %%
@@ -326,32 +376,50 @@ system(Name) ->
   %% work even if the user has rebound that identifier.
   Name.
 
-expand_quasiquote([_QQ, X]) ->
-  descend_quasiquote(X, _Level = 0, _Return = fun finalize_quasiquote/2).
+expand_quasiquote([_QQ, X], SynEnv) ->
+  {descend_quasiquote(X, _Level = 0, _Return = fun finalize_quasiquote/2), SynEnv}.
 
 is_proper_list([_ | Tl]) -> is_proper_list(Tl);
 is_proper_list([]) -> true;
 is_proper_list(_) -> false.
 
-%% Lookup / Enter expander bindings --------------------------------------------
+%% Syntax Environment Operations -----------------------------------------------
 
-put_macro(Name, Expander) ->
-  putprop(Name, ?macro, Expander).
+insert_expander(Name, Expander) ->
+  es_gloenv:insert(Name, '%expander', Expander).
 
-put_syntax(Name, Expander) ->
-  putprop(Name, ?syntax, Expander).
-
-get_macro(Name) ->
-  getprop(Name, ?macro).
-
-get_syntax(Name) ->
-  getprop(Name, ?syntax).
-
-putprop(Name, Tag, Val) ->
-  es_gloenv:insert(Name, Tag, Val).
-
-getprop(Name, Tag) ->
-  case es_gloenv:lookup(Name, Tag) of
-    {value, Val} -> Val;
-    none -> false
+find_expander(SynEnv, Name) ->
+  case es_synenv:lookup(SynEnv, Name) of
+    {value, Expander} when Expander =/= false -> Expander;
+    _ -> false % none (unbound) or {value, false} (shadowed)
   end.
+
+bind_expander({Name, Type, Expander}, SynEnv) ->
+  es_synenv:enter(SynEnv, Name, wrap_expander(Type, Expander)).
+
+wrap_expander(?syntax, Expander) -> Expander;
+wrap_expander(?macro, Expander) ->
+  fun (Sexpr, SynEnv) ->
+    {NewSexpr, NewSynEnv} = Expander(Sexpr, SynEnv),
+    expand_toplevel(NewSexpr, NewSynEnv)
+  end.
+
+unbind_vars(Vars, SynEnv) ->
+  false = es_synenv:is_gloenv(SynEnv), % assert
+  lists:foldl(fun do_unbind_var/2, SynEnv, Vars).
+
+unbind_var(Var, SynEnv) ->
+  case es_synenv:is_gloenv(SynEnv) of
+    true ->
+      SynEnv; % toplevel (define ..), nothing for us to do
+    false ->
+      do_unbind_var(Var, SynEnv)
+  end.
+
+do_unbind_var(Var, SynEnv) ->
+  %% Removing a global binding within a local scope doesn't work, so instead
+  %% we "unbind" a macro by rebinding it to a non-expander, currently 'false'.
+  es_synenv:enter(SynEnv, Var, false).
+
+nested(SynEnv) ->
+  es_synenv:nested(SynEnv).

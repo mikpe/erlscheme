@@ -114,8 +114,9 @@ listp(_) -> false.
 'vector?'(X) ->
   es_datum:is_vector(X).
 
-'eval'(X) ->
-  es_eval:eval(X).
+'eval'(X) -> % TODO: this should be /2 and take an environment specifier
+  {Value, _SynEnv} = es_eval:eval(X, es_synenv:gloenv()),
+  Value.
 
 'getprop'(Name, Tag) ->
   case es_gloenv:lookup(Name, Tag) of
@@ -126,8 +127,8 @@ listp(_) -> false.
 'putprop'(Name, Tag, Val) ->
   es_gloenv:insert(Name, Tag, Val).
 
-'load'(X) ->
-  es_load:load(X).
+'load'(X) -> % TODO: should this take an environment specifier like eval?
+  es_load:load(X, es_synenv:gloenv()).
 
 'compile'(X) ->
   es_compile:file(X).

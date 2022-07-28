@@ -33,7 +33,7 @@ init() ->
     io:format("Welcome to ErlScheme version ~s~n", [?VSN]),
     es_gloenv:init(),
     es_lib_scheme_base:init(),
-    es_macros:init(),
+    es_macros_init(),
     es_load_init(),
     P = es_raw_port:open_stdin(),
     es_lexinput:open(P, "<stdin>")
@@ -44,11 +44,17 @@ init() ->
       false
   end.
 
+es_macros_init() ->
+  lists:foreach(
+    fun ({Name, Expander}) ->
+      es_gloenv:insert(Name, '%expander', Expander)
+    end, es_macros:initial()).
+
 es_load_init() ->
   io:format("Loading es_init.scm ..."),
   {ok, ScmPrefix} = es_path:lib_dir("scm"),
   erlang:put('es_load_prefix', ScmPrefix),
-  es_load:load(es_datum:binary_to_string(<<"es-init.scm">>)),
+  es_load:load(es_datum:binary_to_string(<<"es-init.scm">>), es_synenv:gloenv()),
   io:format(" done~n").
 
 repl(N, LI) ->
@@ -64,7 +70,7 @@ rep(N, LI) ->
     case es_datum:is_eof_object(Sexpr) of
       false ->
         erlang:put('es_load_prefix', "."),
-        Term = es_eval:eval(Sexpr),
+        {Term, _SynEnv} = es_eval:eval(Sexpr, es_synenv:gloenv()),
         es_print:display(Term),
         io:format("~n");
       true ->

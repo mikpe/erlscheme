@@ -33,7 +33,7 @@
 
 -module(es_eval).
 
--export([ eval/1
+-export([ eval/2
         ]).
 
 -type sexpr() :: term().
@@ -41,9 +41,11 @@
 
 %% API -------------------------------------------------------------------------
 
--spec eval(sexpr()) -> datum().
-eval(Sexpr) ->
-  interpret(es_parse:toplevel(es_macros:expand(Sexpr)), es_env:empty()).
+-spec eval(sexpr(), es_macros:synenv()) -> {datum(), es_macros:synenv()}.
+eval(Sexpr, SynEnv) ->
+  {Expanded, NewSynEnv} = es_macros:expand_toplevel(Sexpr, SynEnv),
+  Datum = interpret(es_parse:toplevel(Expanded), es_env:empty()),
+  {Datum, NewSynEnv}.
 
 %% Internals (AST interpreter) -------------------------------------------------
 
