@@ -99,6 +99,9 @@ expand_cond([_Cond, Clause | Rest]) ->
   expand_cond(Clause, Rest).
 
 expand_cond(['else' | Exprs], []) ->
+  %% TODO: R7RS states that (cond (else <exprs>)) reduces to (begin <exprs>), but
+  %% I think that's wrong since (begin ..) is special in <toplevel> and <body>,
+  %% allowing <exprs> to insert internal definitions in the surrounding context.
   ['begin' | expand_list(Exprs)];
 expand_cond([Test], Rest) ->
   %% TODO: generate (let ((<var> <test>)) (if <var> <var> <rest of cond>)) directly
