@@ -153,7 +153,7 @@ expand_let([_Let, Name, Bindings | Body]) when is_atom(Name) ->
   Formals = lists:map(fun ([Var, _Init]) -> Var end, Bindings),
   Inits = lists:map(fun ([_Var, Init]) -> expand(Init) end, Bindings),
   Lambda = ['lambda', Formals | expand_body(Body)],
-  ['letrec', [[Name, Lambda]], [Name | Inits]];
+  [['letrec', [[Name, Lambda]], Name] | Inits];
 expand_let(Form) -> expand_let_or_letrec(Form).
 
 %% Expander helpers ------------------------------------------------------------
