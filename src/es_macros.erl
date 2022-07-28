@@ -143,7 +143,7 @@ expand_let_or_letrec([LetOrLetRec, Bindings | Body]) ->
 'expand_let*'([_LetStar, Bindings | Body]) ->
   'expand_let*'(Bindings, Body).
 
-'expand_let*'([], Body) -> ['begin' | expand_body(Body)];
+'expand_let*'([], Body) -> ['let', [] | expand_body(Body)];
 'expand_let*'([Binding | Bindings], Body) ->
   ['let', [expand_let_binding(Binding)], 'expand_let*'(Bindings, Body)].
 
