@@ -140,12 +140,12 @@ expand_let_or_letrec([LetOrLetRec, Bindings | Body]) ->
   [LetOrLetRec, lists:map(fun expand_let_binding/1, Bindings) | expand_body(Body)].
 
 %% (let* <bindings> <body>+)
-'expand_let*'(['_Let*', Bindings | Body]) ->
+'expand_let*'([_LetStar, Bindings | Body]) ->
   'expand_let*'(Bindings, Body).
 
 'expand_let*'([], Body) -> ['begin' | expand_body(Body)];
 'expand_let*'([Binding | Bindings], Body) ->
-  ['let', [Binding], 'expand_let*'(Bindings, Body)].
+  ['let', [expand_let_binding(Binding)], 'expand_let*'(Bindings, Body)].
 
 %% (let <bindings> <body>+)
 %% (let <name> <bindings> <body>+)
