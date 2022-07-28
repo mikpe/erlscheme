@@ -46,10 +46,10 @@ expand(Sexpr) ->
             false ->
               [Hd | expand_list(Tl)];
             Expander ->
-              expand(es_eval:do_apply(Expander, [Sexpr]))
+              expand(Expander(Sexpr))
           end;
         Expander ->
-          es_eval:do_apply(Expander, [Sexpr])
+          Expander(Sexpr)
       end;
     [_ | _] ->
       expand_list(Sexpr);

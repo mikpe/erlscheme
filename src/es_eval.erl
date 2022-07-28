@@ -33,18 +33,13 @@
 
 -module(es_eval).
 
--export([ do_apply/2
-        , eval/1
+-export([ eval/1
         ]).
 
 -type sexpr() :: term().
 -type datum() :: term().
 
 %% API -------------------------------------------------------------------------
-
--spec do_apply(fun(() -> datum()), [datum()]) -> datum().
-do_apply(Fun, Actuals) ->
-  erlang:apply(Fun, Actuals).
 
 -spec eval(sexpr()) -> datum().
 eval(Sexpr) ->
@@ -136,7 +131,7 @@ interpret_locvar(Var, Env) ->
 interpret_primop(PrimOp, Args0, Env) ->
   Args = [interpret(Arg, Env) || Arg <- Args0],
   case {PrimOp, Args} of
-    {'ES:APPLY', [F | Rest]} -> do_apply(F, Rest);
+    {'ES:APPLY', [F | Rest]} -> apply(F, Rest);
     {'ES:COLON', [M, F, A]} -> fun M:F/A;
     {'ES:LIST', _} -> Args
   end.
