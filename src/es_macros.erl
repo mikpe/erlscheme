@@ -81,11 +81,11 @@ initial() ->
 
 -spec enter_macro(atom(), expander()) -> true.
 enter_macro(Name, Expander) ->
-  insert_expander(Name, wrap_expander(?macro, Expander)).
+  enter_expander(Name, wrap_expander(?macro, Expander)).
 
 -spec enter_syntax(atom(), expander()) -> true.
 enter_syntax(Name, Expander) ->
-  insert_expander(Name, wrap_expander(?syntax, Expander)).
+  enter_expander(Name, wrap_expander(?syntax, Expander)).
 
 %% Built-in macro and syntax expanders -----------------------------------------
 
@@ -385,8 +385,8 @@ is_proper_list(_) -> false.
 
 %% Syntax Environment Operations -----------------------------------------------
 
-insert_expander(Name, Expander) ->
-  es_gloenv:insert(Name, '%expander', Expander).
+enter_expander(Name, Expander) ->
+  es_gloenv:enter_expander(Name, Expander).
 
 find_expander(SynEnv, Name) ->
   case es_synenv:lookup(SynEnv, Name) of

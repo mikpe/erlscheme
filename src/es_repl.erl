@@ -47,7 +47,7 @@ init() ->
 es_macros_init() ->
   lists:foreach(
     fun ({Name, Expander}) ->
-      es_gloenv:insert(Name, '%expander', Expander)
+      es_gloenv:enter_expander(Name, Expander)
     end, es_macros:initial()).
 
 es_load_init() ->

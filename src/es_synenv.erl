@@ -37,8 +37,6 @@
         , nested/1
         ]).
 
--define(expander, '%expander').
-
 -define(gloenv, gloenv).
 -define(env, env).
 -define(nested, nested).
@@ -59,12 +57,12 @@ enter({?env, Env}, Var, Val) -> {?env, es_env:enter(Env, Var, Val)};
 enter({?nested, Env}, Var, Val) -> {?nested, es_env:enter(Env, Var, Val)}.
 
 -spec lookup(synenv(), atom()) -> {value, term()} | none.
-lookup(?gloenv, Var) -> es_gloenv:lookup(Var, ?expander);
+lookup(?gloenv, Var) -> es_gloenv:lookup_expander(Var);
 lookup({env, Env}, Var) -> es_env:lookup(Env, Var);
 lookup({?nested, Env}, Var) ->
   case es_env:lookup(Env, Var) of
     {value, _} = Result -> Result;
-    none -> es_gloenv:lookup(Var, ?expander)
+    none -> es_gloenv:lookup_expander(Var)
   end.
 
 -spec gloenv() -> synenv().

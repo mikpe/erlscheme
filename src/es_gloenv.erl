@@ -25,16 +25,19 @@
 -module(es_gloenv).
 
 -export([ destroy/0
+        , enter_expander/2
         , enter_var/2
         , get_var/1
         , init/0
-        , insert/3
-        , lookup/2
+        , lookup_expander/1
         ]).
 
 -define(es_gloenv_tab, es_gloenv_tab).
 -define(es_gloenv_pid, es_gloenv_pid).
+-define(tag_expander, '%expander').
 -define(tag_var, '%var').
+
+-type name() :: atom().
 
 %% API -------------------------------------------------------------------------
 
@@ -60,27 +63,24 @@ destroy() ->
       ok
   end.
 
--spec get_var(term()) -> term().
+-spec get_var(name()) -> term().
 get_var(Name) ->
   case lookup(Name, ?tag_var) of
     {value, Value} -> Value;
     none -> throw({unbound_variable, Name})
   end.
 
--spec enter_var(term(), term()) -> true.
-enter_var(Name, Value) -> insert(Name, ?tag_var, Value).
+-spec enter_expander(name(), term()) -> true.
+enter_expander(Name, Value) ->
+  insert(Name, ?tag_expander, Value).
 
--spec lookup(term(), atom()) -> {value, term()} | none.
-lookup(Name, Tag) ->
-  case lookup(Name) of
-    {Tag, Value} -> {value, Value};
-    {_OtherTag, _Value} -> none;
-    none -> none
-  end.
+-spec enter_var(name(), term()) -> true.
+enter_var(Name, Value) ->
+  insert(Name, ?tag_var, Value).
 
--spec insert(term(), atom(), term()) -> true.
-insert(Name, Tag, Val) ->
-  ets:insert(?es_gloenv_tab, {Name, {Tag, Val}}).
+-spec lookup_expander(name()) -> {value, term()} | none.
+lookup_expander(Name) ->
+  lookup(Name, ?tag_expander).
 
 %% Internals -------------------------------------------------------------------
 
@@ -98,7 +98,19 @@ wait_for_destroy() ->
       wait_for_destroy()
   end.
 
--spec lookup(term()) -> {atom(), term()} | none.
+-spec insert(name(), ?tag_var|?tag_expander, term()) -> true.
+insert(Name, Tag, Val) ->
+  ets:insert(?es_gloenv_tab, {Name, {Tag, Val}}).
+
+-spec lookup(name(), ?tag_var|?tag_expander) -> {value, term()} | none.
+lookup(Name, Tag) ->
+  case lookup(Name) of
+    {Tag, Value} -> {value, Value};
+    {_OtherTag, _Value} -> none;
+    none -> none
+  end.
+
+-spec lookup(name()) -> {?tag_var|?tag_expander, term()} | none.
 lookup(Name) ->
   try
     ets:lookup_element(?es_gloenv_tab, Name, 2)
