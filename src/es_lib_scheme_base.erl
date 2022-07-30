@@ -44,8 +44,6 @@ init() ->
   define_var('cdddr', fun 'cdddr'/1),
   define_var('vector?', fun 'vector?'/1),
   define_var('eval', fun 'eval'/1),
-  define_var('getprop', fun 'getprop'/2),
-  define_var('putprop', fun 'putprop'/3),
   define_var('load', fun 'load'/1),
   define_var('compile', fun 'compile'/1),
   ok.
@@ -117,15 +115,6 @@ listp(_) -> false.
 'eval'(X) -> % TODO: this should be /2 and take an environment specifier
   {Value, _SynEnv} = es_eval:eval(X, es_synenv:gloenv()),
   Value.
-
-'getprop'(Name, Tag) ->
-  case es_gloenv:lookup(Name, Tag) of
-    {value, Val} -> Val;
-    none -> false
-  end.
-
-'putprop'(Name, Tag, Val) ->
-  es_gloenv:insert(Name, Tag, Val).
 
 'load'(X) -> % TODO: should this take an environment specifier like eval?
   es_load:load(X, es_synenv:gloenv()).
