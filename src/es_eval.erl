@@ -70,7 +70,9 @@ interpret(AST, Env) ->
     {'ES:QUOTE', Value} ->
       interpret_quote(Value);
     {'ES:SEQ', First, Next} ->
-      interpret_seq(First, Next, Env)
+      interpret_seq(First, Next, Env);
+    {'ES:TRY', Expr, Var, Body, EVar, Handler, After} ->
+      interpret_try(Expr, Var, Body, EVar, Handler, After, Env)
   end.
 
 interpret_define(Var, Expr, Env) ->
@@ -145,6 +147,22 @@ interpret_quote(Value) ->
 interpret_seq(First, Next, Env) ->
   interpret(First, Env),
   interpret(Next, Env).
+
+interpret_try(Expr, Var, Body, EVar, Handler, _After = [], Env) ->
+  interpret_try(Expr, Var, Body, EVar, Handler, Env);
+interpret_try(Expr, Var, Body, EVar, Handler, After, Env) ->
+  try interpret_try(Expr, Var, Body, EVar, Handler, Env)
+  after interpret(After, Env)
+  end.
+
+interpret_try(Expr, Var, Body, EVar, Handler, Env) ->
+  try
+    interpret(Expr, Env) of
+      Res ->
+        interpret(Body, bind_formals([Var], [Res], Env))
+  catch Class:Reason:Stack ->
+    interpret(Handler, bind_formals([EVar], [{Class, Reason, Stack}], Env))
+  end.
 
 %% Auxiliary helpers -----------------------------------------------------------
 
