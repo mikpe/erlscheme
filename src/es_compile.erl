@@ -98,7 +98,9 @@ translate_expr(AST, FEnv) ->
     {'ES:QUOTE', Value} ->
       translate_quote(Value);
     {'ES:SEQ', First, Next} ->
-      translate_seq(First, Next, FEnv)
+      translate_seq(First, Next, FEnv);
+    {'ES:TRY', Expr, Var, Body, EVar, Handler, After} ->
+      translate_try(Expr, Var, Body, EVar, Handler, After, FEnv)
   end.
 
 %% Variable references not bound in their top-level defun become ES:GLOVAR.
@@ -187,6 +189,48 @@ translate_quote(Value) ->
 translate_seq(First, Next, FEnv) ->
   cerl:c_seq(translate_expr(First, FEnv), translate_expr(Next, FEnv)).
 
+%% try
+%%   Expr of
+%%     Var ->
+%%       Body
+%% catch Class:Reason:Stack ->
+%%   EVar = {Class, Reason, Stack},
+%%   Handler
+%% after
+%%   After % After=[] means it is absent
+%% end
+translate_try(Expr, Var, Body, EVar, Handler, After, FEnv) ->
+  translate_after(translate_try(Expr, Var, Body, EVar, Handler, FEnv), After, FEnv).
+
+translate_try(Expr, Var, Body, EVar, Handler, FEnv) ->
+  CVarClass = newvar(),
+  CVarReason = newvar(),
+  CVarRawStack = newvar(),
+  CVarStack = newvar(),
+  cerl:c_try(translate_expr(Expr, FEnv),
+             [cerl:c_var(Var)],
+             translate_expr(Body, FEnv),
+             [CVarClass, CVarReason, CVarRawStack],
+             cerl:c_let([CVarStack], cerl:c_primop('build_stacktrace', [CVarRawStack]),
+                        cerl:c_let([cerl:c_var(EVar)], cerl:c_tuple([CVarClass, CVarReason, CVarStack]),
+                                   translate_expr(Handler, FEnv)))).
+
+translate_after(CInnerTry, _After = [], _FEnv) -> CInnerTry;
+translate_after(CInnerTry, After, FEnv) ->
+  CVarAfter = newvar(),
+  CVarOf = newvar(),
+  CVarClass = newvar(),
+  CVarReason = newvar(),
+  CVarRawStack = newvar(),
+  cerl:c_let([CVarAfter], cerl:c_fun([], translate_expr(After, FEnv)),
+             cerl:c_try(CInnerTry,
+                        [CVarOf],
+                        cerl:c_seq(cerl:c_apply(CVarAfter, []),
+                                   CVarOf),
+                        [CVarClass, CVarReason, CVarRawStack],
+                        cerl:c_seq(cerl:c_apply(CVarAfter, []),
+                                   cerl:c_primop('raise', [CVarRawStack, CVarReason])))).
+
 modinfo0_def(ModuleName) ->
   {modinfo0_fname(),
    cerl:c_fun([], cerl:c_call(cerl:c_atom('erlang'), cerl:c_atom('get_module_info'), [ModuleName]))}.
@@ -204,3 +248,9 @@ modinfo1_fname() ->
 
 wildpat() ->
   cerl:c_var('_').
+
+newvar() ->
+  %% Neither cerl, core_lint, nor core_pp reject negative numeric variable names,
+  %% but the BEAM compiler throws syntax errors on .core files containing them.
+  %% FIXME: check if this still is true
+  cerl:c_var(erlang:unique_integer([positive])).
