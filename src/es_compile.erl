@@ -95,10 +95,10 @@ translate_expr(AST, FEnv) ->
       translate_locvar(Var);
     {'ES:PRIMOP', PrimOp, Actuals} ->
       translate_primop(PrimOp, Actuals, FEnv);
-    {'ES:SEQ', First, Next} ->
-      translate_seq(First, Next, FEnv);
     {'ES:QUOTE', Value} ->
-      translate_quote(Value)
+      translate_quote(Value);
+    {'ES:SEQ', First, Next} ->
+      translate_seq(First, Next, FEnv)
   end.
 
 %% Variable references not bound in their top-level defun become ES:GLOVAR.
@@ -174,14 +174,14 @@ make_fun(M, F, A) ->
 make_list([]) -> cerl:c_nil();
 make_list([H | T]) -> cerl:c_cons(H, make_list(T)).
 
-translate_seq(First, Next, FEnv) ->
-  cerl:c_seq(translate_expr(First, FEnv), translate_expr(Next, FEnv)).
-
 translate_quote(Value) ->
   %% This is a PRE for cerl:abstract/1, but may not be true for all possible
   %% quoted values.  FIXME: how to represent other terms?
   true = cerl:is_literal_term(Value),
   cerl:abstract(Value).
+
+translate_seq(First, Next, FEnv) ->
+  cerl:c_seq(translate_expr(First, FEnv), translate_expr(Next, FEnv)).
 
 modinfo0_def(ModuleName) ->
   {modinfo0_fname(),

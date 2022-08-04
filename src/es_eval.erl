@@ -67,10 +67,10 @@ interpret(AST, Env) ->
       interpret_locvar(Var, Env);
     {'ES:PRIMOP', PrimOp, Actuals} ->
       interpret_primop(PrimOp, Actuals, Env);
-    {'ES:SEQ', First, Next} ->
-      interpret_seq(First, Next, Env);
     {'ES:QUOTE', Value} ->
-      interpret_quote(Value)
+      interpret_quote(Value);
+    {'ES:SEQ', First, Next} ->
+      interpret_seq(First, Next, Env)
   end.
 
 interpret_define(Var, Expr, Env) ->
@@ -138,12 +138,12 @@ interpret_primop(PrimOp, Args0, Env) ->
     {'ES:LIST', _} -> Args
   end.
 
+interpret_quote(Value) ->
+  Value.
+
 interpret_seq(First, Next, Env) ->
   interpret(First, Env),
   interpret(Next, Env).
-
-interpret_quote(Value) ->
-  Value.
 
 %% Auxiliary helpers -----------------------------------------------------------
 
