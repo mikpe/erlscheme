@@ -28,6 +28,7 @@
 %%%   M, F, and A are all evaluated except that if M or F are unbound variables, they
 %%%   are implicitly quoted to become literal symbols
 %%% - (M:F A1 ... An) is equivalent to ((lambda M:F/n) A1 ... An)
+%%% - (try ...) is the exception handling primitive, modelled after Erlang's try
 
 -module(es_parse).
 
@@ -141,6 +142,8 @@ parse_form(Hd, Tl, Env, IsToplevel) ->
       parse_letrec(Tl, Env);
     'quote' ->
       parse_quote(Tl);
+    'try' ->
+      parse_try(Tl, Env);
     _ ->
       parse_call(Hd, Tl, Env)
   end.
@@ -323,3 +326,80 @@ parse_quote(Tl) ->
     _ ->
       erlang:throw({bad_quote, Tl})
   end.
+
+%% Erlang-like try construct:
+%%
+%% (try Expr
+%%   (of Var Body)
+%%   (catch EVar Handler)
+%%   (after After))
+%%
+%% Expr is evaluated in a dynamic context with a new current exception handler.
+%%
+%% If Expr evaluates to Val without raising an exception, Body is evaluated with
+%% Var bound to Val in the original context of the try, i.e. without the new
+%% exception handler present, and the value of Body becomes the value of the try.
+%% If (of Var Body) is absent it is treated as (of x x) for some fresh variable x.
+%%
+%% If the evaluation of Expr raises an exception E, Handler is evaluated with EVar
+%% bound to E in the original context of the try, i.e. without the new exception
+%% handler present, and the value of Handler becomes the value of the try.
+%% If (catch Var Handler) is absent it is treated as (catch x (raise x)) for some
+%% fresh variable x.
+%%
+%% If (after After) is present, After is evaluated and its value ignored in the
+%% original context of the try, i.e. without the new handler present, immediately
+%% before the try returns or raises to the original context of the try.
+%%
+%% The of, catch, and after clauses are all optional, but at least one of catch
+%% or after must be present.
+parse_try(Tl, Env) ->
+  case Tl of
+    [Expr0 | RestExpr] ->
+      Expr = parse(Expr0, Env),
+      {MaybeOf, RestOf} = parse_try_clause('of', RestExpr, Env),
+      {MaybeCatch, RestHandle} = parse_try_clause('catch', RestOf, Env),
+      {After, RestAfter} = parse_try_after(RestHandle, Env),
+      case (RestAfter =:= []) andalso (MaybeCatch =/= [] orelse After =/= []) of
+        true ->
+          {Var, Body} = fixup_try_of(MaybeOf),
+          {EVar, Handler} = fixup_try_catch(MaybeCatch),
+          {'ES:TRY', Expr, Var, Body, EVar, Handler, After};
+        false ->
+          erlang:throw({bad_try, Tl})
+      end;
+    [] ->
+      erlang:throw({bad_try, Tl})
+  end.
+
+parse_try_clause(Tag, [[Tag, Var, Expr] | Rest], Env) when is_atom(Var) ->
+  {{Var, parse(Expr, es_env:enter(Env, Var, []))}, Rest};
+parse_try_clause(Tag, [[Tag | _] = Clause | _Rest], _Env) ->
+  erlang:throw({bad_try_clause, Clause});
+parse_try_clause(_Tag, Rest, _Env) ->
+  {[], Rest}.
+
+parse_try_after([['after', Expr] | Rest], Env) ->
+  {parse(Expr, Env), Rest};
+parse_try_after(Rest, _Env) ->
+  {[], Rest}.
+
+fixup_try_of(MaybeOf) ->
+  case MaybeOf of
+    {_Var, _Body} -> MaybeOf;
+    [] ->
+      Var = newvar(),
+      {Var, {'ES:LOCVAR', Var}}
+  end.
+
+fixup_try_catch(MaybeCatch) ->
+  case MaybeCatch of
+    {_EVar, _Handler} -> MaybeCatch;
+    [] ->
+      EVar = newvar(),
+      Handler = {'ES:PRIMOP', 'ES:RAISE', [{'ES:LOCVAR', EVar}]},
+      {EVar, Handler}
+  end.
+
+newvar() ->
+  erlang:unique_integer([positive]).
