@@ -88,6 +88,11 @@
 %%% An Scheme procedure becomes an Erlang function of the same arity.
 %%% Variable-arity procedures are not supported.
 %%%
+%%% exception          {Class, Reason, Stack}
+%%%
+%%% A caught exception becomes a 3-tuple of the Class (atom 'error',
+%%% 'exit', or 'throw'), Reason (any value), and Stack (list).
+%%%
 %%% tid                 pid
 %%%
 %%% RnRS Scheme does not have threads, but ErlScheme adds threads
@@ -108,6 +113,7 @@
         , integer_to_char/1
         , list_to_vector/1
         , mk_eof_object/0
+        , raise/1
         , string_to_binary/1
         , unspecified/0
         ]).
@@ -163,3 +169,10 @@ list_to_vector(L) -> erlang:list_to_tuple(L).
 %% Unspecified
 
 unspecified() -> [].
+
+%% Exceptions
+
+%% This re-raises a caught exception.
+raise({error, Reason, _Stack}) -> erlang:error(Reason);
+raise({exit,  Reason, _Stack}) -> erlang:exit(Reason);
+raise({throw, Reason, _Stack}) -> erlang:throw(Reason).

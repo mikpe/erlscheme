@@ -135,7 +135,8 @@ interpret_primop(PrimOp, Args0, Env) ->
   case {PrimOp, Args} of
     {'ES:APPLY', [F | Rest]} -> apply(F, Rest);
     {'ES:COLON', [M, F, A]} -> fun M:F/A;
-    {'ES:LIST', _} -> Args
+    {'ES:LIST', _} -> Args;
+    {'ES:RAISE', [Exn]} -> es_datum:raise(Exn)
   end.
 
 interpret_quote(Value) ->
