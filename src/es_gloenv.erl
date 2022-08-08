@@ -24,8 +24,7 @@
 
 -module(es_gloenv).
 
--export([ destroy/0
-        , enter_expander/2
+-export([ enter_expander/2
         , enter_var/2
         , get_var/1
         , init/0
@@ -33,7 +32,6 @@
         ]).
 
 -define(es_gloenv_tab, es_gloenv_tab).
--define(es_gloenv_pid, es_gloenv_pid).
 -define(tag_expander, '%expander').
 -define(tag_var, '%var').
 
@@ -43,25 +41,8 @@
 
 -spec init() -> ok.
 init() ->
-  case ets:info(?es_gloenv_tab, type) of
-    set ->
-      ok;
-    undefined ->
-      Self = self(),
-      %% FIXME: monitoring here?
-      P = spawn(fun () -> do_init(Self) end),
-      receive {ok, P} -> ok end
-  end.
-
--spec destroy() -> ok.
-destroy() ->
-  case whereis(?es_gloenv_pid) of
-    Pid when is_pid(Pid) ->
-      Pid ! {destroy, self()},
-      receive {ok, Pid} -> ok end;
-    undefined ->
-      ok
-  end.
+  ets:new(?es_gloenv_tab, [public, named_table, {read_concurrency, true}]),
+  ok.
 
 -spec get_var(name()) -> term().
 get_var(Name) ->
@@ -83,20 +64,6 @@ lookup_expander(Name) ->
   lookup(Name, ?tag_expander).
 
 %% Internals -------------------------------------------------------------------
-
-do_init(Pid) ->
-  erlang:register(?es_gloenv_pid, self()),
-  ets:new(?es_gloenv_tab, [public, named_table, {read_concurrency, true}]),
-  Pid ! {ok, self()},
-  wait_for_destroy().
-
-wait_for_destroy() ->
-  receive
-    {destroy, Pid} ->
-      Pid ! {ok, self()};
-    _ ->
-      wait_for_destroy()
-  end.
 
 -spec insert(name(), ?tag_var|?tag_expander, term()) -> true.
 insert(Name, Tag, Val) ->
