@@ -29,14 +29,22 @@ interoperability.  ErlScheme added features include:
 
 - Separately-compiled modules.  A module like
 
-```
-  (module meaning)
-  (export (/ life 0)) ; or (export life/0)
-  (define (life) 42)
-```
+        (module meaning)
+        (export (/ life 0)) ; or (export life/0)
+        (define (life) 42)
 
-  in a file "meaning.scm" can be compiled to "meaning.beam", and then called
-  from ErlScheme as (meaning:life) or from Erlang as meaning:life().
+    in a file "meaning.scm" can be compiled to "meaning.beam", and then called
+    from ErlScheme as (meaning:life) or from Erlang as meaning:life().
+
+- Erlang-like exception handling:
+
+        (try Expr
+          (of Var Body)
+          (catch EVar Handler)
+          (after After))
+
+    ErlScheme exceptions have termination semantics, not resumption semantics
+    as specified by R7RS.
 
 - Erlang processes and message passing.
 
@@ -58,6 +66,9 @@ Some Scheme feature are not supported:
   and emulating it requires changing calling conventions which ends up making
   interoperability with Erlang code more difficult.
 
+- No resumption from exception handlers.  Like call/cc, supporting this would
+  require a CPS-transform, making interoperability with Erlang code difficult.
+
 ErlScheme is a Work In Progress
 ===============================
 
@@ -68,10 +79,7 @@ Omissions:
 - No Unicode, characters are 8-bit, and identifiers only allow ASCII.
 - Most of the Scheme standard bindings are not yet implemented.
 - The R6RS/R7RS library system is not implemented, and may never be.
-- The R6RS/R7RS exception handling system is not yet implemented.
 - No documentation.
-- Exception handling is limited to restarting the REPL after printing
-  a message about the exception that occurred.
 - The macro / syntax system is old-fashioned and primitive.
 
 Planned extensions:
