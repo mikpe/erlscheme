@@ -77,6 +77,7 @@ initial() ->
     , {'quasiquote', ?macro, fun expand_quasiquote/2}
     , {'quote', ?syntax, fun expand_quote/2}
     , {'set!', ?syntax, fun 'expand_set!'/2}
+    , {'try', ?syntax, fun expand_try/2}
     ]).
 
 -spec enter_macro(atom(), expander()) -> true.
@@ -193,6 +194,24 @@ expand_let([_Let, Name, Bindings | Body], SynEnv) when is_atom(Name) ->
   Lambda = ['lambda', Formals | expand_body(Body, SynEnvBody)],
   {[['letrec', [[Name, Lambda]], Name] | Inits], SynEnv};
 expand_let(Form, SynEnv) -> expand_let_or_letrec(Form, SynEnv).
+
+%% (try <expr> (of <var> <expr>+) (catch <var> <expr>+) (after <expr>+))
+expand_try([Try, Expr0 | RestExpr], SynEnv) ->
+  Expr = expand_expr(Expr0, SynEnv),
+  {MaybeOf, RestOf} = expand_try_clause('of', RestExpr, SynEnv),
+  {MaybeCatch, RestCatch} = expand_try_clause('catch', RestOf, SynEnv),
+  After = expand_try_after(RestCatch, SynEnv),
+  {[Try, Expr | (MaybeOf ++ (MaybeCatch ++ After))], SynEnv}.
+
+expand_try_clause(Tag, [[Tag, Var | Exprs] | Rest], SynEnv) when is_atom(Var) ->
+  {[[Tag, Var, ['begin' | expand_list(Exprs, do_unbind_var(Var, nested(SynEnv)))]]], Rest};
+expand_try_clause(_Tag, Rest, _SynEnv) ->
+  {[], Rest}.
+
+expand_try_after([['after' | Exprs]], SynEnv) ->
+  [['after', ['begin' | expand_list(Exprs, SynEnv)]]];
+expand_try_after([], _SynEnv) ->
+  [].
 
 %% (begin <forms>..)
 %% Begin is special since it essentially "disappears" in <toplevel> and <body>.
