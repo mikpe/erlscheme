@@ -167,15 +167,12 @@ translate_primop(PrimOp, Args, FEnv) ->
   CerlArgs = lists:map(fun(Arg) -> translate_expr(Arg, FEnv) end, Args),
   case {PrimOp, CerlArgs} of
     {'ES:COLON', [M, F, A]} -> make_fun(M, F, A);
-    {'ES:LIST', _} -> make_list(CerlArgs);
+    {'ES:LIST', _} -> cerl:make_list(CerlArgs);
     {'ES:RAISE', [Exn]} -> make_raise(Exn)
   end.
 
 make_fun(M, F, A) ->
   cerl:c_call(cerl:c_atom('erlang'), cerl:c_atom('make_fun'), [M, F, A]).
-
-make_list([]) -> cerl:c_nil();
-make_list([H | T]) -> cerl:c_cons(H, make_list(T)).
 
 make_raise(Exn) ->
   cerl:c_call(cerl:c_atom('es_datum'), cerl:c_atom('raise'), [Exn]).
