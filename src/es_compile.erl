@@ -146,10 +146,10 @@ assemble_subst([], Body) -> Body;
 assemble_subst([FVar | FVars], Body) ->
   assemble_subst(FVars, cerl:c_let([cerl:c_var(cerl:fname_id(FVar))], FVar, Body)).
 
-translate_let([],  Body, FEnv) ->
-  translate_expr(Body, FEnv);
-translate_let([{Lhs, Rhs} | Bindings], Body, FEnv) ->
-  cerl:c_let([cerl:c_var(Lhs)], translate_expr(Rhs, FEnv), translate_let(Bindings, Body, FEnv)).
+translate_let(Bindings, Body, FEnv) ->
+  Vars = lists:map(fun({Lhs, _Rhs}) -> translate_locvar(Lhs) end, Bindings),
+  Args = lists:map(fun({_Lhs, Rhs}) -> translate_expr(Rhs, FEnv) end, Bindings),
+  cerl:c_let(Vars, cerl:c_values(Args), translate_expr(Body, FEnv)).
 
 translate_locvar(Var) ->
   %% TODO: assumes Var is printable
