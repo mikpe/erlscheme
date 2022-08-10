@@ -83,6 +83,8 @@ translate_expr(AST, FEnv) ->
   case AST of
     {'ES:BEGIN', First, Next} ->
       translate_begin(First, Next, FEnv);
+    {'ES:CONS', Hd, Tl} ->
+      translate_cons(Hd, Tl, FEnv);
     {'ES:GLOVAR', Var} ->
       translate_glovar(Var, FEnv);
     {'ES:IF', Pred, Then, Else} ->
@@ -100,11 +102,16 @@ translate_expr(AST, FEnv) ->
     {'ES:QUOTE', Value} ->
       translate_quote(Value);
     {'ES:TRY', Expr, Var, Body, EVar, Handler, After} ->
-      translate_try(Expr, Var, Body, EVar, Handler, After, FEnv)
+      translate_try(Expr, Var, Body, EVar, Handler, After, FEnv);
+    {'ES:TUPLE', Exprs} ->
+      translate_tuple(Exprs, FEnv)
   end.
 
 translate_begin(First, Next, FEnv) ->
   cerl:c_seq(translate_expr(First, FEnv), translate_expr(Next, FEnv)).
+
+translate_cons(Hd, Tl, FEnv) ->
+  cerl:c_cons(translate_expr(Hd, FEnv), translate_expr(Tl, FEnv)).
 
 %% Variable references not bound in their top-level defun become ES:GLOVAR.
 %% In a module they can only reference top-level defuns in the same module.
@@ -227,6 +234,9 @@ translate_after(CInnerTry, After, FEnv) ->
                         [CVarClass, CVarReason, CVarRawStack],
                         cerl:c_seq(cerl:c_apply(CVarAfter, []),
                                    cerl:c_primop('raise', [CVarRawStack, CVarReason])))).
+
+translate_tuple(Exprs, FEnv) ->
+  cerl:c_tuple(lists:map(fun(Expr) -> translate_expr(Expr, FEnv) end, Exprs)).
 
 modinfo0_def(ModuleName) ->
   {modinfo0_fname(),
