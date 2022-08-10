@@ -163,8 +163,8 @@ translate_primop('ES:APPLY', [Fun | Args], FEnv) ->
     _ ->
       cerl:c_apply(translate_expr(Fun, FEnv), CerlActuals)
   end;
-translate_primop(PrimOp, Args0, FEnv) ->
-  CerlArgs = lists:map(fun(Arg) -> translate_expr(Arg, FEnv) end, Args0),
+translate_primop(PrimOp, Args, FEnv) ->
+  CerlArgs = lists:map(fun(Arg) -> translate_expr(Arg, FEnv) end, Args),
   case {PrimOp, CerlArgs} of
     {'ES:COLON', [M, F, A]} -> make_fun(M, F, A);
     {'ES:LIST', _} -> make_list(CerlArgs);
