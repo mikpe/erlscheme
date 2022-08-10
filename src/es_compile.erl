@@ -83,6 +83,8 @@ translate_expr(AST, FEnv) ->
   case AST of
     {'ES:BEGIN', First, Next} ->
       translate_begin(First, Next, FEnv);
+    {'ES:CASE', Expr, Clauses} ->
+      translate_case(Expr, Clauses, FEnv);
     {'ES:CONS', Hd, Tl} ->
       translate_cons(Hd, Tl, FEnv);
     {'ES:GLOVAR', Var} ->
@@ -109,6 +111,10 @@ translate_expr(AST, FEnv) ->
 
 translate_begin(First, Next, FEnv) ->
   cerl:c_seq(translate_expr(First, FEnv), translate_expr(Next, FEnv)).
+
+translate_case(Expr, Clauses, FEnv) ->
+  cerl:c_case(translate_expr(Expr, FEnv),
+              lists:map(fun(Clause) -> translate_clause(Clause, FEnv) end, Clauses)).
 
 translate_cons(Hd, Tl, FEnv) ->
   cerl:c_cons(translate_expr(Hd, FEnv), translate_expr(Tl, FEnv)).
@@ -238,6 +244,62 @@ translate_after(CInnerTry, After, FEnv) ->
 translate_tuple(Exprs, FEnv) ->
   cerl:c_tuple(lists:map(fun(Expr) -> translate_expr(Expr, FEnv) end, Exprs)).
 
+%% Pattern matching ------------------------------------------------------------
+
+translate_clause({Pat, Guard, Body}, FEnv) ->
+  {CPat, Eqs} = translate_pat(Pat, []),
+  CGuard = extend_guard(Eqs, translate_guard(Guard, FEnv)),
+  cerl:c_clause([CPat], CGuard, translate_expr(Body, FEnv)).
+
+translate_guard(Guard, FEnv) ->
+  CVar = newvar(),
+  CVarClass = newvar(),
+  CVarReason = newvar(),
+  True = cerl:c_atom('true'),
+  False = cerl:c_atom('false'),
+  cerl:c_try(translate_expr(Guard, FEnv),
+             [CVar],
+             cerl:c_case(CVar,
+                         [cerl:c_clause([True], True),
+                          cerl:c_clause([wildpat()], False)]),
+             [CVarClass, CVarReason],
+             False).
+
+extend_guard([], CGuard) -> CGuard;
+extend_guard([{CV1, CV2} | Eqs], CGuard) ->
+  cerl:c_case(cerl:c_call(cerl:c_atom('erlang'), cerl:c_atom('=:='), [CV1, CV2]),
+              [cerl:c_clause([cerl:c_atom('true')], extend_guard(Eqs, CGuard)),
+               cerl:c_clause([wildpat()], cerl:c_atom('false'))]).
+
+translate_pat(Pat, Eqs) ->
+  case Pat of
+    {'ES:BIND', Var, Pat2} -> % Var is not bound
+      {CPat2, Eqs2} = translate_pat(Pat2, Eqs),
+      {cerl:c_alias(cerl:c_var(Var), CPat2), Eqs2};
+    {'ES:CONS', Hd, Tl} ->
+      {CHd, Eqs1} = translate_pat(Hd, Eqs),
+      {CTl, Eqs2} = translate_pat(Tl, Eqs1),
+      {cerl:c_cons(CHd, CTl), Eqs2};
+    {'ES:EQUAL', Var, Pat2} -> % Var is bound
+      {CPat2, Eqs2} = translate_pat(Pat2, Eqs),
+      CVar = newvar(),
+      {cerl:c_alias(CVar, CPat2), [{CVar, cerl:c_var(Var)} | Eqs2]};
+    {'ES:QUOTE', Value} ->
+      translate_quote(Value);
+    {'ES:TUPLE', Pats} ->
+      translate_tuple_pat(Pats, [], Eqs);
+    'ES:WILD' ->
+      wildpat()
+  end.
+
+translate_tuple_pat([], CPats, Eqs) ->
+  {cerl:c_tuple(lists:reverse(CPats)), Eqs};
+translate_tuple_pat([Pat | Pats], CPats, Eqs) ->
+  {CPat, Eqs2} = translate_pat(Pat, Eqs),
+  translate_tuple_pat(Pats, [CPat | CPats], Eqs2).
+
+%% Auxiliary helpers -----------------------------------------------------------
+
 modinfo0_def(ModuleName) ->
   {modinfo0_fname(),
    cerl:c_fun([], cerl:c_call(cerl:c_atom('erlang'), cerl:c_atom('get_module_info'), [ModuleName]))}.
@@ -254,7 +316,7 @@ modinfo1_fname() ->
   cerl:c_fname('module_info', 1).
 
 wildpat() ->
-  cerl:c_var('_').
+  newvar().
 
 newvar() ->
   %% Neither cerl, core_lint, nor core_pp reject negative numeric variable names,
