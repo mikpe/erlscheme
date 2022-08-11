@@ -30,6 +30,8 @@
 %%%
 %%% Extensions:
 %%% - (: M F A) is equivalent to Erlang's fun M:F/A
+%%% - (case ...) performs Erlang-like pattern-matching with optional guards,
+%%%   Scheme's (case ...) is not supported
 
 -module(es_eval).
 
@@ -57,6 +59,8 @@ interpret(AST, Env) ->
   case AST of
     {'ES:BEGIN', First, Next} ->
       interpret_begin(First, Next, Env);
+    {'ES:CASE', Expr, Clauses} ->
+      interpret_case(Expr, Clauses, Env);
     {'ES:CONS', Hd, Tl} ->
       interpret_cons(Hd, Tl, Env);
     {'ES:DEFINE', Var, Expr} ->
@@ -86,6 +90,10 @@ interpret(AST, Env) ->
 interpret_begin(First, Next, Env) ->
   interpret(First, Env),
   interpret(Next, Env).
+
+interpret_case(Expr, Clauses, Env) ->
+  {Body, NewEnv} = interpret_clauses(Clauses, interpret(Expr, Env), Env),
+  interpret(Body, NewEnv).
 
 interpret_cons(Hd, Tl, Env) ->
   [interpret(Hd, Env) | interpret(Tl, Env)].
@@ -177,6 +185,87 @@ interpret_try(Expr, Var, Body, EVar, Handler, Env) ->
 
 interpret_tuple(Exprs, Env) ->
   list_to_tuple(lists:map(fun (Expr) -> interpret(Expr, Env) end, Exprs)).
+
+%% Pattern matching ------------------------------------------------------------
+%%
+%% Patterns follow the Erlang convention of classifying variables as bindings if
+%% not already bound in the pattern or in the surrounding scope, and as equality
+%% constraints otherwise. Plain variable patterns are represented as (= Var _).
+
+-define(nomatch, nomatch).
+
+interpret_clauses([], _Val, _Env) -> ?nomatch;
+interpret_clauses([Clause | Clauses], Val, Env) ->
+  case interpret_clause(Clause, Val, Env) of
+    ?nomatch -> interpret_clauses(Clauses, Val, Env);
+    {_Body, _NewEnv} = Match -> Match
+  end.
+
+interpret_clause({Pat, Guard, Body}, Val, Env) ->
+  case match_pat(Pat, Val, Env) of
+    ?nomatch -> ?nomatch;
+    NewEnv ->
+      case interpret_guard(Guard, NewEnv) of
+        true -> {Body, NewEnv};
+        false -> ?nomatch
+      end
+  end.
+
+interpret_guard(Guard, Env) ->
+  try interpret(Guard, Env) of
+    true -> true;
+    _ -> false
+  catch _:_ -> false
+  end.
+
+match_pat(Pat, Val, Env) ->
+  case Pat of
+    {'ES:BIND', Var, Pat2} -> % Var is not bound
+      match_pat(Pat2, Val, es_env:enter(Env, Var, Val));
+    {'ES:CONS', Hd, Tl} ->
+      case Val of
+        [X | Y] ->
+          case match_pat(Hd, X, Env) of
+            ?nomatch -> ?nomatch;
+            Env2 -> match_pat(Tl, Y, Env2)
+          end;
+        _ -> ?nomatch
+      end;
+    {'ES:EQUAL', Var, Pat2} -> % Var is bound, may be global
+      case Val == get_pat_var(Var, Env) of
+        true -> match_pat(Pat2, Val, Env);
+        false -> ?nomatch
+      end;
+    {'ES:QUOTE', Val2} ->
+      case Val == Val2 of
+        true -> Env;
+        false -> ?nomatch
+      end;
+    {'ES:TUPLE', Pats} ->
+      case is_tuple(Val) of
+        true ->
+	  case tuple_size(Val) =:= length(Pats) of
+            true -> match_tuple(Pats, 1, Val, Env);
+            false -> ?nomatch
+          end;
+        false -> ?nomatch
+      end;
+    'ES:WILD' ->
+      Env
+  end.
+
+get_pat_var(Var, Env) ->
+  case es_env:lookup(Env, Var) of
+    {value, Val} -> Val;
+    none -> es_gloenv:get_var(Var)
+  end.
+
+match_tuple([], _I, _Tuple, Env) -> Env;
+match_tuple([Pat | Pats], I, Tuple, Env) ->
+  case match_pat(Pat, element(I, Tuple), Env) of
+    ?nomatch -> ?nomatch;
+    Env2 -> match_tuple(Pats, I + 1, Tuple, Env2)
+  end.
 
 %% Auxiliary helpers -----------------------------------------------------------
 
