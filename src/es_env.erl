@@ -23,6 +23,7 @@
 -export([ empty/0
         , enter/3
         , get/2
+        , is_bound/2
         , lookup/2
         , map/2
         , overlay/2
@@ -41,6 +42,10 @@ get(Env, Var) ->
 -spec enter(env(), any(), any()) -> env().
 enter(Env, Var, Val) ->
   maps:put(Var, Val, Env).
+
+-spec is_bound(env(), any()) -> boolean().
+is_bound(Env, Var) ->
+  maps:is_key(Var, Env).
 
 -spec lookup(env(), any()) -> none | {value, any()}.
 lookup(Env, Var) ->
