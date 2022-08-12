@@ -19,6 +19,10 @@
 %%% Parses a top-level S-expression and converts it to an abstract syntax
 %%% tree (AST).
 %%%
+%%% Checks bindings, variable references, and export declarations. (This is not
+%%% postponed to a "lint" module since this processing is needed anyway in order
+%%% to generate correct AST for variable references and ":" operands.)
+%%%
 %%% Notes:
 %%% - Variadic functions (with "rest" parameters) are not supported, since
 %%%   they mess up calling conventions and interoperability with Erlang.
@@ -45,14 +49,17 @@
 module(Sexprs) ->
   {Name, Sexprs1} = parse_module_decl(Sexprs),
   {Exports, Sexprs2} = parse_export_decl(Sexprs1),
-  Defuns = parse_defuns(Sexprs2),
+  PreDefuns = parse_pre_defuns(Sexprs2),
+  ModEnv = build_modenv(PreDefuns),
+  Defuns = parse_defuns(PreDefuns, ModEnv),
+  check_exports(Exports, ModEnv),
   {'ES:MODULE', Name, Exports, Defuns}.
 
 -spec toplevel(sexpr()) -> ast().
 toplevel(Sexpr) ->
   parse(Sexpr, es_env:empty(), true).
 
-%% Internals -------------------------------------------------------------------
+%% Internals: Modules ----------------------------------------------------------
 
 parse_module_decl(Sexprs) ->
   case Sexprs of
@@ -84,16 +91,48 @@ parse_exports(Exports, Acc) ->
       erlang:throw(invalid_export_decl)
   end.
 
-parse_defuns(Sexprs) ->
-  lists:map(fun parse_defun/1, Sexprs).
+check_exports(Exports, ModEnv) ->
+  lists:foreach(fun (Export) -> check_export(Export, ModEnv) end, Exports).
 
-parse_defun(Sexpr) ->
-  case parse(Sexpr, es_env:empty(), true) of
-    {'ES:DEFINE', _Var, {'ES:LAMBDA', _Formals, _Body}} = Defun ->
-      Defun;
+check_export({F, A}, ModEnv) ->
+  case es_env:lookup(ModEnv, F) of
+    {value, A} -> ok;
+    {value, B} -> erlang:throw({export_wrong_arity, F, A, B});
+    none -> erlang:throw({export_undef, F, A})
+  end.
+
+parse_pre_defuns(Sexprs) ->
+  lists:map(fun parse_pre_defun/1, Sexprs).
+
+parse_pre_defun(Sexpr) ->
+  case Sexpr of
+    ['define', Name, ['lambda', Formals, Body]] when is_atom(Name) ->
+      try length(Formals) of
+        _Arity -> {Name, Formals, Body}
+      catch error:badarg ->
+        erlang:throw({bad_formals, Formals})
+      end;
     _ ->
       erlang:throw({invalid_defun, Sexpr})
   end.
+
+build_modenv(PreDefuns) ->
+  lists:foldl(fun build_modenv/2, es_env:empty(), PreDefuns).
+
+build_modenv({Name, Formals, _Body}, Env) ->
+  Arity = length(Formals),
+  case es_env:is_bound(Env, Name) of
+    true -> erlang:throw({already_bound, Name, Arity});
+    false -> es_env:enter(Env, Name, Arity)
+  end.
+
+parse_defuns(PreDefuns, ModEnv) ->
+  lists:map(fun (PreDefun) -> parse_defun(PreDefun, ModEnv) end, PreDefuns).
+
+parse_defun({Name, Formals, Body}, ModEnv) ->
+  {'ES:DEFINE', Name, parse_plain_lambda(Formals, Body, ModEnv)}.
+
+%% Internals: Expressions ------------------------------------------------------
 
 parse(Sexpr, Env) ->
   parse(Sexpr, Env, false).
@@ -168,8 +207,10 @@ parse_atom(Atom, Env) ->
       {'ES:QUOTE', Atom};
     _ ->
       case es_env:lookup(Env, Atom) of
-        {value, _} ->
+        {value, []} ->
           {'ES:LOCVAR', Atom};
+        {value, A} when is_integer(A) ->
+          {'ES:GLOVAR', Atom};
         none ->
           {'ES:GLOVAR', Atom}
       end
@@ -232,11 +273,14 @@ parse_lambda(Tl, Env) ->
     [M, ':', F, '/', A] ->
       {'ES:PRIMOP', 'ES:COLON', [quote_if_glovar(parse(M, Env)), quote_if_glovar(parse(F, Env)), parse(A, Env)]};
     [Formals, Body] ->
-      ScopeEnv = parse_formals(Formals, es_env:empty()),
-      {'ES:LAMBDA', Formals, parse(Body, es_env:overlay(Env, ScopeEnv))};
+      parse_plain_lambda(Formals, Body, Env);
     _ ->
       erlang:throw({bad_lambda, Tl})
   end.
+
+parse_plain_lambda(Formals, Body, Env) ->
+  ScopeEnv = parse_formals(Formals, es_env:empty()),
+  {'ES:LAMBDA', Formals, parse(Body, es_env:overlay(Env, ScopeEnv))}.
 
 quote_if_glovar(AST) ->
   case AST of
@@ -255,11 +299,9 @@ parse_formals(Formals, ScopeEnv) ->
   end.
 
 bind(Var, ScopeEnv) when is_atom(Var) ->
-  case es_env:lookup(ScopeEnv, Var) of
-    none ->
-      es_env:enter(ScopeEnv, Var, []);
-    _ ->
-      erlang:throw({bad_var, Var})
+  case es_env:is_bound(ScopeEnv, Var) of
+    true -> erlang:throw({already_bound, Var});
+    false -> es_env:enter(ScopeEnv, Var, [])
   end.
 
 parse_let(Tl, Env) ->
