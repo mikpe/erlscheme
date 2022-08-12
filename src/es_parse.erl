@@ -221,7 +221,7 @@ parse_begin(Tl, Env, IsToplevel) ->
     [Expr] ->
       parse(Expr, Env, IsToplevel);
     [Expr | Rest] ->
-      {'ES:SEQ', parse(Expr, Env, IsToplevel), parse_begin(Rest, Env, IsToplevel)};
+      {'ES:BEGIN', parse(Expr, Env, IsToplevel), parse_begin(Rest, Env, IsToplevel)};
     [] when IsToplevel ->       % (begin) is valid at the top-level
       {'ES:QUOTE', es_datum:unspecified()};
     _ ->

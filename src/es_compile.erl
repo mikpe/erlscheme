@@ -81,6 +81,8 @@ translate_defun({'ES:DEFINE', Var, {'ES:LAMBDA', Formals, Body}}, FEnv) ->
 
 translate_expr(AST, FEnv) ->
   case AST of
+    {'ES:BEGIN', First, Next} ->
+      translate_begin(First, Next, FEnv);
     {'ES:GLOVAR', Var} ->
       translate_glovar(Var, FEnv);
     {'ES:IF', Pred, Then, Else} ->
@@ -97,11 +99,12 @@ translate_expr(AST, FEnv) ->
       translate_primop(PrimOp, Actuals, FEnv);
     {'ES:QUOTE', Value} ->
       translate_quote(Value);
-    {'ES:SEQ', First, Next} ->
-      translate_seq(First, Next, FEnv);
     {'ES:TRY', Expr, Var, Body, EVar, Handler, After} ->
       translate_try(Expr, Var, Body, EVar, Handler, After, FEnv)
   end.
+
+translate_begin(First, Next, FEnv) ->
+  cerl:c_seq(translate_expr(First, FEnv), translate_expr(Next, FEnv)).
 
 %% Variable references not bound in their top-level defun become ES:GLOVAR.
 %% In a module they can only reference top-level defuns in the same module.
@@ -182,9 +185,6 @@ translate_quote(Value) ->
   %% quoted values.  FIXME: how to represent other terms?
   true = cerl:is_literal_term(Value),
   cerl:abstract(Value).
-
-translate_seq(First, Next, FEnv) ->
-  cerl:c_seq(translate_expr(First, FEnv), translate_expr(Next, FEnv)).
 
 %% try
 %%   Expr of

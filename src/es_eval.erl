@@ -51,6 +51,8 @@ eval(Sexpr, SynEnv) ->
 
 interpret(AST, Env) ->
   case AST of
+    {'ES:BEGIN', First, Next} ->
+      interpret_begin(First, Next, Env);
     {'ES:DEFINE', Var, Expr} ->
       interpret_define(Var, Expr, Env);
     {'ES:GLOVAR', Var} ->
@@ -69,11 +71,13 @@ interpret(AST, Env) ->
       interpret_primop(PrimOp, Actuals, Env);
     {'ES:QUOTE', Value} ->
       interpret_quote(Value);
-    {'ES:SEQ', First, Next} ->
-      interpret_seq(First, Next, Env);
     {'ES:TRY', Expr, Var, Body, EVar, Handler, After} ->
       interpret_try(Expr, Var, Body, EVar, Handler, After, Env)
   end.
+
+interpret_begin(First, Next, Env) ->
+  interpret(First, Env),
+  interpret(Next, Env).
 
 interpret_define(Var, Expr, Env) ->
   %% This is restricted, by macro-expansion and parsing, to the top-level.
@@ -143,10 +147,6 @@ interpret_primop(PrimOp, Args0, Env) ->
 
 interpret_quote(Value) ->
   Value.
-
-interpret_seq(First, Next, Env) ->
-  interpret(First, Env),
-  interpret(Next, Env).
 
 interpret_try(Expr, Var, Body, EVar, Handler, _After = [], Env) ->
   interpret_try(Expr, Var, Body, EVar, Handler, Env);
