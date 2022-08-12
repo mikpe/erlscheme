@@ -57,6 +57,8 @@ interpret(AST, Env) ->
   case AST of
     {'ES:BEGIN', First, Next} ->
       interpret_begin(First, Next, Env);
+    {'ES:CONS', Hd, Tl} ->
+      interpret_cons(Hd, Tl, Env);
     {'ES:DEFINE', Var, Expr} ->
       interpret_define(Var, Expr, Env);
     {'ES:GLOVAR', Var} ->
@@ -76,12 +78,17 @@ interpret(AST, Env) ->
     {'ES:QUOTE', Value} ->
       interpret_quote(Value);
     {'ES:TRY', Expr, Var, Body, EVar, Handler, After} ->
-      interpret_try(Expr, Var, Body, EVar, Handler, After, Env)
+      interpret_try(Expr, Var, Body, EVar, Handler, After, Env);
+    {'ES:TUPLE', Exprs} ->
+      interpret_tuple(Exprs, Env)
   end.
 
 interpret_begin(First, Next, Env) ->
   interpret(First, Env),
   interpret(Next, Env).
+
+interpret_cons(Hd, Tl, Env) ->
+  [interpret(Hd, Env) | interpret(Tl, Env)].
 
 interpret_define(Var, Expr, Env) ->
   %% This is restricted, by macro-expansion and parsing, to the top-level.
@@ -167,6 +174,9 @@ interpret_try(Expr, Var, Body, EVar, Handler, Env) ->
   catch Class:Reason:Stack ->
     interpret(Handler, bind_formals([EVar], [{Class, Reason, Stack}], Env))
   end.
+
+interpret_tuple(Exprs, Env) ->
+  list_to_tuple(lists:map(fun (Expr) -> interpret(Expr, Env) end, Exprs)).
 
 %% Auxiliary helpers -----------------------------------------------------------
 
