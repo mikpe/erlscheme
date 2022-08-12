@@ -30,16 +30,16 @@
 
 %% API -------------------------------------------------------------------------
 
--spec load(datum(), synenv()) -> synenv().
+-spec load(datum(), synenv()) -> ok.
 load(Name, SynEnv) ->
   case es_datum:is_string(Name) of
     true -> % (load "Name.scm")
       load_file(Name, SynEnv);
     false -> % (load 'Name)
       true = es_datum:is_symbol(Name),
-      load_module(Name),
-      SynEnv
-  end.
+      load_module(Name)
+  end,
+  ok.
 
 -spec module(string()) -> ast().
 module(FileName) ->
