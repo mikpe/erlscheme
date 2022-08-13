@@ -28,6 +28,7 @@
         , enter_var/2
         , get_var/1
         , init/0
+        , is_bound_var/1
         , lookup_expander/1
         ]).
 
@@ -58,6 +59,13 @@ enter_expander(Name, Value) ->
 -spec enter_var(name(), term()) -> true.
 enter_var(Name, Value) ->
   insert(Name, ?tag_var, Value).
+
+-spec is_bound_var(name()) -> boolean().
+is_bound_var(Name) ->
+  case lookup(Name, ?tag_var) of
+    {value, _} -> true;
+    none -> false
+  end.
 
 -spec lookup_expander(name()) -> {value, term()} | none.
 lookup_expander(Name) ->
