@@ -33,6 +33,8 @@
 %%%   are implicitly quoted to become literal symbols
 %%% - (M:F A1 ... An) is equivalent to ((lambda M:F/n) A1 ... An)
 %%% - (try ...) is the exception handling primitive, modelled after Erlang's try
+%%% - (case ...) is the pattern-matching primitive, modelled after Erlang's case,
+%%%   Scheme's (case ...) is not supported
 
 -module(es_parse).
 
@@ -169,6 +171,8 @@ parse_form(Hd, Tl, Env, IsToplevel) ->
       parse_and(Tl, Env);
     'begin' ->
       parse_begin(Tl, Env, IsToplevel);
+    'case' ->
+      parse_case(Tl, Env);
     'define' ->
       parse_define(Tl, Env, IsToplevel);
     'if' ->
@@ -249,6 +253,20 @@ parse_call(Hd0, Tl, Env) ->
       _ -> {'ES:APPLY', [Fun | Args]}
     end,
   {'ES:PRIMOP', PrimOp, PrimArgs}.
+
+parse_case(Tl, Env) ->
+  case Tl of
+    [Expr | Clauses] ->
+      {'ES:CASE', parse(Expr, Env), parse_clauses(Clauses, default_case_clause(), Env)};
+    _ ->
+      erlang:throw({bad_case, Tl})
+  end.
+
+default_case_clause() ->
+  %% Synthesize (_ (erlang:error 'case_clause))
+  ErrorFun = {'ES:PRIMOP', 'ES:COLON', [{'ES:QUOTE', 'erlang'}, {'ES:QUOTE', 'error'}, {'ES:QUOTE', 1}]},
+  ErrorExpr = {'ES:PRIMOP', 'ES:APPLY', [ErrorFun, {'ES:QUOTE', 'case_clause'}]},
+  [{'ES:WILD', {'ES:QUOTE', 'true'}, ErrorExpr}].
 
 parse_define(Tl, Env, IsToplevel) ->
   case {Tl, IsToplevel} of
@@ -443,6 +461,136 @@ fixup_try_catch(MaybeCatch) ->
       {EVar, Handler}
   end.
 
+%% Pattern matching ------------------------------------------------------------
+
+parse_clauses([Clause | Clauses], Tail, Env) ->
+  [parse_clause(Clause, Env) | parse_clauses(Clauses, Tail, Env)];
+parse_clauses([], Tail, _Env) ->
+  Tail.
+
+parse_clause(Clause, Env) ->
+  case Clause of
+    [Pat, ['when', Guard], Body] ->
+      parse_clause(Pat, {ok, Guard}, Body, Env);
+    [Pat, Body] ->
+      parse_clause(Pat, false, Body, Env);
+    _ ->
+      erlang:throw({bad_clause, Clause})
+  end.
+
+parse_clause(Pat, MaybeGuard, Body, Env) ->
+  {ParsedPat, ClauseEnv} = parse_pat(Pat, Env),
+  ParsedGuard =
+    case MaybeGuard of
+      {ok, Guard} -> parse_guard(Guard, ClauseEnv);
+      false -> {'ES:QUOTE', 'true'}
+    end,
+  {ParsedPat, ParsedGuard, parse(Body, ClauseEnv)}.
+
+parse_pat(Sexpr, Env) ->
+  case Sexpr of
+    '_' ->
+      {'ES:WILD', Env};
+    Var when is_atom(Var) -> % unquoted x means the variable x
+      case is_bound_in_pat(Env, Var) of
+        true ->
+          {{'ES:EQUAL', Var, 'ES:WILD'}, Env};
+        false ->
+          {{'ES:BIND', Var, 'ES:WILD'}, bind(Var, Env)}
+      end;
+    ['quote', Atom] when is_atom(Atom) -> % 'x means the symbol x
+      {{'ES:QUOTE', Atom}, Env};
+    ['=', Var, Pat2] when is_atom(Var), Var =/= '_' ->
+      case is_bound_in_pat(Env, Var) of
+        true ->
+          {ParsedPat2, Env2} = parse_pat(Pat2, Env),
+          {{'ES:EQUAL', Var, ParsedPat2}, Env2};
+        false ->
+          {ParsedPat2, Env2} = parse_pat(Pat2, bind(Var, Env)),
+          {{'ES:BIND', Var, ParsedPat2}, Env2}
+      end;
+    [Pat1 | Pat2] ->
+      {ParsedPat1, Env1} = parse_pat(Pat1, Env),
+      {ParsedPat2, Env2} = parse_pat(Pat2, Env1),
+      {{'ES:CONS', ParsedPat1, ParsedPat2}, Env2};
+    Tuple when is_tuple(Tuple) ->
+      parse_tuple_pat(tuple_to_list(Tuple), [], Env);
+    [] ->
+      {{'ES:QUOTE', []}, Env};
+    _ ->
+      case is_self_evaluating(Sexpr) of
+        true ->
+          {{'ES:QUOTE', Sexpr}, Env};
+        false ->
+          erlang:throw({invalid_pattern, Sexpr})
+      end
+  end.
+
+parse_tuple_pat([], ParsedPats, Env) ->
+  {{'ES:TUPLE', lists:reverse(ParsedPats)}, Env};
+parse_tuple_pat([Pat | Pats], ParsedPats, Env) ->
+  {ParsedPat, NewEnv} = parse_pat(Pat, Env),
+  parse_tuple_pat(Pats, [ParsedPat | ParsedPats], NewEnv).
+
+%% Guards ----------------------------------------------------------------------
+
+parse_guard(Sexpr, Env) ->
+  Guard = parse(Sexpr, Env),
+  check_guard(Guard),
+  Guard.
+
+check_guard(Guard) ->
+  case Guard of
+    {'ES:BEGIN', _, _} -> % only useful for side-effects
+      invalid_guard(Guard);
+    {'ES:CASE', _, _} -> % can fail
+      invalid_guard(Guard);
+    {'ES:CONS', Hd, Tl} ->
+      check_guard(Hd),
+      check_guard(Tl);
+    {'ES:DEFINE', _, _} ->
+      invalid_guard(Guard);
+    {'ES:GLOVAR', _} ->
+      ok;
+    {'ES:IF', Pred, Then, Else} ->
+      check_guard(Pred),
+      check_guard(Then),
+      check_guard(Else);
+    {'ES:LAMBDA', _, _} -> % safe, but pointless since it can't be applied
+      ok;
+    {'ES:LET', Bindings, Body} ->
+      lists:foreach(fun({_Lhs, Rhs}) -> check_guard(Rhs) end, Bindings),
+      check_guard(Body);
+    {'ES:LETREC', _, _} -> % can loop/recurse
+      invalid_guard(Guard);
+    {'ES:LOCVAR', _} ->
+      ok;
+    {'ES:PRIMOP', PrimOp, Args} ->
+      case {PrimOp, Args} of
+        {'ES:APPLY', [ {'ES:PRIMOP', 'ES:COLON', [{'ES:QUOTE', 'erlang'}, {'ES:QUOTE', F}, {'ES:QUOTE', A}]}
+                     | Rest]} ->
+          case A =:= length(Rest) andalso erl_internal:guard_bif(F, A) of
+            true -> lists:foreach(fun check_guard/1, Rest);
+            false -> invalid_guard(Guard)
+          end;
+        {'ES:COLON', _} -> % safe but pointless in isolation
+          invalid_guard(Guard);
+        {'ES:LIST', _} ->
+          lists:foreach(fun check_guard/1, Args);
+        {'ES:RAISE', _} ->
+          invalid_guard(Guard)
+      end;
+    {'ES:QUOTE', _} ->
+      ok;
+    {'ES:TRY', _, _, _, _, _, _} ->
+      invalid_guard(Guard);
+    {'ES:TUPLE', Exprs} ->
+      lists:foreach(fun check_guard/1, Exprs)
+  end.
+
+invalid_guard(Expr) ->
+  erlang:throw({invalid_guard, Expr}).
+
 %% Auxiliary helpers -----------------------------------------------------------
 
 %% The parse-time environment records lexically bound variables, and in modules
@@ -457,6 +605,12 @@ empty_module_env() ->
 
 empty_repl_env() ->
   es_env:enter(es_env:empty(), ?MARKER_KEY, 'repl').
+
+%% For patterns in the REPL we need to classify global variables as bound.
+is_bound_in_pat(Env, Var) ->
+  es_env:is_bound(Env, Var) orelse
+  (es_env:get(Env, ?MARKER_KEY) =:= 'repl' andalso
+   es_gloenv:is_bound_var(Var)).
 
 newvar() ->
   erlang:unique_integer([positive]).
