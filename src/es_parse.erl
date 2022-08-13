@@ -57,7 +57,7 @@ module(Sexprs) ->
 
 -spec toplevel(sexpr()) -> ast().
 toplevel(Sexpr) ->
-  parse(Sexpr, es_env:empty(), true).
+  parse(Sexpr, empty_repl_env(), true).
 
 %% Internals: Modules ----------------------------------------------------------
 
@@ -117,7 +117,7 @@ parse_pre_defun(Sexpr) ->
   end.
 
 build_modenv(PreDefuns) ->
-  lists:foldl(fun build_modenv/2, es_env:empty(), PreDefuns).
+  lists:foldl(fun build_modenv/2, empty_module_env(), PreDefuns).
 
 build_modenv({Name, Formals, _Body}, Env) ->
   Arity = length(Formals),
@@ -442,6 +442,21 @@ fixup_try_catch(MaybeCatch) ->
       Handler = {'ES:PRIMOP', 'ES:RAISE', [{'ES:LOCVAR', EVar}]},
       {EVar, Handler}
   end.
+
+%% Auxiliary helpers -----------------------------------------------------------
+
+%% The parse-time environment records lexically bound variables, and in modules
+%% also the toplevel defuns. Global variables need to be considered bound in
+%% in some contexts in the REPL, so the environment has a marker to distinguish
+%% modules from the REPL.
+
+-define(MARKER_KEY, []). % no ErlScheme variable has name []
+
+empty_module_env() ->
+  es_env:enter(es_env:empty(), ?MARKER_KEY, 'module').
+
+empty_repl_env() ->
+  es_env:enter(es_env:empty(), ?MARKER_KEY, 'repl').
 
 newvar() ->
   erlang:unique_integer([positive]).
