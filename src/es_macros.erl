@@ -143,22 +143,22 @@ expand_cond_rest([], _SynEnv) -> expand_unspecified().
 
 %% (lambda <formals> <body>+)
 expand_lambda([Lambda, Formals | Body], SynEnv) ->
-  SynEnvBody = unbind_vars(Formals, nested(SynEnv)),
+  SynEnvBody = bind_vars(Formals, nested(SynEnv)),
   {[Lambda, Formals | expand_body(Body, SynEnvBody)], SynEnv}.
 
 %% (define <var> <expr>)
 %% (define (<var> <formals>*) <body>+)
 expand_define([Define, [Var | Formals] | Body], SynEnv) ->
   {Expanded, _SynEnv} = expand_lambda(['lambda', Formals | Body], SynEnv),
-  {[Define, Var, Expanded], unbind_var(Var, SynEnv)};
+  {[Define, Var, Expanded], bind_var(Var, SynEnv)};
 expand_define([Define, Var, Val], SynEnv) ->
-  {[Define, Var, expand_expr(Val, SynEnv)], unbind_var(Var, SynEnv)}.
+  {[Define, Var, expand_expr(Val, SynEnv)], bind_var(Var, SynEnv)}.
 
 %% (let <bindings> <body>+)
 %% (letrec <bindings> <body>+)
 expand_let_or_letrec([LetOrLetRec, Bindings | Body], SynEnv) ->
   Vars = lists:map(fun ([Var, _Init]) -> Var end, Bindings),
-  SynEnvBody = unbind_vars(Vars, nested(SynEnv)),
+  SynEnvBody = bind_vars(Vars, nested(SynEnv)),
   {[LetOrLetRec,
     lists:map(fun ([Var, Init]) -> [Var, expand_expr(Init, SynEnvBody)] end, Bindings) |
     expand_body(Body, SynEnvBody)],
@@ -170,14 +170,14 @@ expand_let_or_letrec([LetOrLetRec, Bindings | Body], SynEnv) ->
 
 'expand_let*'([], Body, SynEnv) -> ['let', [] | expand_body(Body, nested(SynEnv))];
 'expand_let*'([[Var, Init] | Bindings], Body, SynEnv) ->
-  ['let', [[Var, expand_expr(Init, SynEnv)]], 'expand_let*'(Bindings, Body, do_unbind_var(Var, nested(SynEnv)))].
+  ['let', [[Var, expand_expr(Init, SynEnv)]], 'expand_let*'(Bindings, Body, do_bind_var(Var, nested(SynEnv)))].
 
 %% (let <bindings> <body>+)
 %% (let <name> <bindings> <body>+)
 expand_let([_Let, Name, Bindings | Body], SynEnv) when is_atom(Name) ->
   Formals = lists:map(fun ([Var, _Init]) -> Var end, Bindings),
   Inits = lists:map(fun ([_Var, Init]) -> expand_expr(Init, SynEnv) end, Bindings),
-  SynEnvBody = unbind_vars([Name | Formals], nested(SynEnv)),
+  SynEnvBody = bind_vars([Name | Formals], nested(SynEnv)),
   Lambda = ['lambda', Formals | expand_body(Body, SynEnvBody)],
   {[['letrec', [[Name, Lambda]], Name] | Inits], SynEnv};
 expand_let(Form, SynEnv) -> expand_let_or_letrec(Form, SynEnv).
@@ -191,7 +191,7 @@ expand_try([Try, Expr0 | RestExpr], SynEnv) ->
   {[Try, Expr | (MaybeOf ++ (MaybeCatch ++ After))], SynEnv}.
 
 expand_try_clause(Tag, [[Tag, Var | Exprs] | Rest], SynEnv) when is_atom(Var) ->
-  {[[Tag, Var, ['begin' | expand_list(Exprs, do_unbind_var(Var, nested(SynEnv)))]]], Rest};
+  {[[Tag, Var, ['begin' | expand_list(Exprs, do_bind_var(Var, nested(SynEnv)))]]], Rest};
 expand_try_clause(_Tag, Rest, _SynEnv) ->
   {[], Rest}.
 
@@ -410,21 +410,20 @@ wrap_expander(?macro, Expander) ->
     expand_toplevel(NewSexpr, NewSynEnv)
   end.
 
-unbind_vars(Vars, SynEnv) ->
+bind_vars(Vars, SynEnv) ->
   false = es_synenv:is_gloenv(SynEnv), % assert
-  lists:foldl(fun do_unbind_var/2, SynEnv, Vars).
+  lists:foldl(fun do_bind_var/2, SynEnv, Vars).
 
-unbind_var(Var, SynEnv) ->
+bind_var(Var, SynEnv) ->
   case es_synenv:is_gloenv(SynEnv) of
     true ->
       SynEnv; % toplevel (define ..), nothing for us to do
     false ->
-      do_unbind_var(Var, SynEnv)
+      do_bind_var(Var, SynEnv)
   end.
 
-do_unbind_var(Var, SynEnv) ->
-  %% Removing a global binding within a local scope doesn't work, so instead
-  %% we "unbind" a macro by rebinding it to a non-expander, currently 'false'.
+%% Variables are bound to false, as opposed to expanders which are bound to functions.
+do_bind_var(Var, SynEnv) ->
   es_synenv:enter(SynEnv, Var, false).
 
 nested(SynEnv) ->
