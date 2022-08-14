@@ -46,6 +46,20 @@ interoperability.  ErlScheme added features include:
     ErlScheme exceptions have termination semantics, not resumption semantics
     as specified by R7RS.
 
+- Erlang-like case expressions and pattern matching:
+
+        (case Expr
+          ('x 'got_an_x) ; quote symbols to treat them as literals
+          (y (when Guard) Body..) ; unquoted symbols are variables
+          (_ Default))
+
+    Patterns are datums where symbols denote variables if unquoted, and literals
+    when quoted. References to bound variables are equality constraints, as in
+    Erlang.
+
+    Scheme's original (case ...) expressions are not supported. They can be
+    supported via a macro if so desired. (This author finds them pointless.)
+
 - Erlang processes and message passing.
 
 Some Scheme feature are not supported:
