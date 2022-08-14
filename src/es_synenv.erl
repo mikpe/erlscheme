@@ -56,13 +56,17 @@ empty() -> {?env, es_env:empty()}.
 enter({?env, Env}, Var, Val) -> {?env, es_env:enter(Env, Var, Val)};
 enter({?nested, Env}, Var, Val) -> {?nested, es_env:enter(Env, Var, Val)}.
 
+%% Lookup an identifier in the syntax environment.  Returns:
+%% none if the identifier is not bound at all
+%% {value, false} if the identifier is bound as a variable
+%% {value, Expander} if the identifier is bound as an expander
 -spec lookup(synenv(), atom()) -> {value, term()} | none.
-lookup(?gloenv, Var) -> es_gloenv:lookup_expander(Var);
+lookup(?gloenv, Var) -> lookup_gloenv(Var);
 lookup({env, Env}, Var) -> es_env:lookup(Env, Var);
 lookup({?nested, Env}, Var) ->
   case es_env:lookup(Env, Var) of
     {value, _} = Result -> Result;
-    none -> es_gloenv:lookup_expander(Var)
+    none -> lookup_gloenv(Var)
   end.
 
 -spec gloenv() -> synenv().
@@ -75,3 +79,15 @@ is_gloenv(_) -> false.
 -spec nested(synenv()) -> synenv().
 nested(?gloenv) -> {?nested, es_env:empty()};
 nested(SynEnv) -> SynEnv.
+
+%% Internals -------------------------------------------------------------------
+
+lookup_gloenv(Var) ->
+  case es_gloenv:lookup_expander(Var) of
+    {value, _} = Result -> Result;
+    none ->
+      case es_gloenv:is_bound_var(Var) of
+        true -> {value, false};
+        false -> none
+      end
+  end.
