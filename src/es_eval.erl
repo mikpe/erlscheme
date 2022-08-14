@@ -43,8 +43,12 @@
 
 -spec eval(sexpr(), es_macros:synenv()) -> {datum(), es_macros:synenv()}.
 eval(Sexpr, SynEnv) ->
+  %% io:format("before expand:\n~p\n", [Sexpr]),
   {Expanded, NewSynEnv} = es_macros:expand_toplevel(Sexpr, SynEnv),
-  Datum = interpret(es_parse:toplevel(Expanded), es_env:empty()),
+  %% io:format("after expand:\n~p\n", [Expanded]),
+  AST = es_parse:toplevel(Expanded),
+  %% io:format("after parse:\n~p\n", [AST]),
+  Datum = interpret(AST, es_env:empty()),
   {Datum, NewSynEnv}.
 
 %% Internals (AST interpreter) -------------------------------------------------
