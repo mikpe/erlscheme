@@ -65,6 +65,7 @@ initial() ->
   lists:map(
     fun ({Name, Type, Expander}) -> {Name, wrap_expander(Type, Expander)} end,
     [ {'begin', ?syntax, fun expand_begin/2}
+    , {'case', ?syntax, fun expand_case/2}
     , {'compiler-syntax', ?syntax, fun expand_compiler_syntax/2}
     , {'cond', ?syntax, fun expand_cond/2}
     , {'define', ?syntax, fun expand_define/2}
@@ -120,6 +121,20 @@ expand_quote([_Quote, _] = Sexpr, SynEnv) ->
 %% (set! <var> <expr>)
 'expand_set!'([Set, Var, Val], SynEnv) ->
   {[Set, Var, expand_expr(Val, SynEnv)], SynEnv}.
+
+%% (case <expr> (<pat> [(when <expr>)] <expr>+)+)
+%% This is the ErlScheme-specific (case ...), NOT Scheme's pointless version.
+expand_case([Case, Expr0 | Clauses0], SynEnv) ->
+  Expr = expand_expr(Expr0, SynEnv),
+  Clauses = lists:map(fun (Clause) -> expand_case_clause(Clause, SynEnv) end, Clauses0),
+  {[Case, Expr | Clauses], SynEnv}.
+
+expand_case_clause([Pat, ['when', Expr] | Exprs], SynEnv) ->
+  SynEnvClause = bind_pat_vars(Pat, nested(SynEnv)),
+  [Pat, ['when', expand_expr(Expr, SynEnvClause)], ['begin' | expand_list(Exprs, SynEnvClause)]];
+expand_case_clause([Pat | Exprs], SynEnv) ->
+  SynEnvClause = bind_pat_vars(Pat, nested(SynEnv)),
+  [Pat, ['begin' | expand_list(Exprs, SynEnvClause)]].
 
 %% (cond <clause>+)
 expand_cond([_Cond, Clause | Rest], SynEnv) ->
@@ -242,6 +257,30 @@ expand_toplevel_forms(_Forms = [], SynEnv, Acc) ->
 %% Sometimes we need to generate an unspecified value.
 expand_unspecified() ->
   ['quote', es_datum:unspecified()].
+
+bind_pat_vars(Pat, SynEnv) ->
+  case Pat of
+    '_' ->
+      SynEnv;
+    Var when is_atom(Var) ->
+      bind_one_pat_var(Var, SynEnv);
+    ['quote', Atom] when is_atom(Atom) ->
+      SynEnv;
+    ['=', Var, Pat2] when is_atom(Var), Var =/= '_' ->
+      bind_pat_vars(Pat2, bind_one_pat_var(Var, SynEnv));
+    [Pat1 | Pat2] ->
+      bind_pat_vars(Pat2, bind_pat_vars(Pat1, SynEnv));
+    Tuple when is_tuple(Tuple) ->
+      lists:foldl(fun bind_pat_vars/2, SynEnv, tuple_to_list(Tuple));
+    _ ->
+      SynEnv
+  end.
+
+bind_one_pat_var(Var, SynEnv) ->
+  case es_synenv:lookup(SynEnv, Var) of
+    {value, false} -> SynEnv; % Var is already bound as a variable
+    _Other -> bind_var(Var, SynEnv) % Var gets bound here
+  end.
 
 %% Quasiquote expander ---------------------------------------------------------
 %%
