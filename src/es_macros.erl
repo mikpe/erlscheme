@@ -65,7 +65,6 @@ initial() ->
   lists:map(
     fun ({Name, Type, Expander}) -> {Name, wrap_expander(Type, Expander)} end,
     [ {'begin', ?syntax, fun expand_begin/2}
-    , {'case', ?syntax, fun expand_case/2}
     , {'compiler-syntax', ?syntax, fun expand_compiler_syntax/2}
     , {'cond', ?syntax, fun expand_cond/2}
     , {'define', ?syntax, fun expand_define/2}
@@ -141,18 +140,6 @@ expand_cond([Test | Exprs], Rest, SynEnv) ->
 
 expand_cond_rest([Clause | Rest], SynEnv) -> expand_cond(Clause, Rest, SynEnv);
 expand_cond_rest([], _SynEnv) -> expand_unspecified().
-
-%% (case <expr> <clause>+)
-expand_case([Case, Key, Clause | Rest], SynEnv) ->
-  {[Case, expand_expr(Key, SynEnv) | expand_case(Clause, Rest, SynEnv)], SynEnv}.
-
-expand_case(['else' | Exprs], [], SynEnv) ->
-  ['else' | expand_list(Exprs, SynEnv)];
-expand_case([Datums | Exprs], Rest, SynEnv) ->
-  [[Datums | expand_list(Exprs, SynEnv)] | expand_case_rest(Rest, SynEnv)].
-
-expand_case_rest([Clause | Rest], SynEnv) -> expand_case(Clause , Rest, SynEnv);
-expand_case_rest([], _SynEnv) -> expand_unspecified().
 
 %% (lambda <formals> <body>+)
 expand_lambda([Lambda, Formals | Body], SynEnv) ->
