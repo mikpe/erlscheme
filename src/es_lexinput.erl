@@ -162,10 +162,6 @@ handle_name(State) ->
 handle_peek_char(State) ->
   {ok, es_raw_port:peek_char(State#state.port)}.
 
-%% FIXME: for \r bump Line and reset Column like for \n, but also set a flag,
-%% then in \n check that flag and if set do not bump Line or reset Column,
-%% for any Ch not \r reset the \r flag
-
 handle_read_char(State) ->
   Ch = es_raw_port:read_char(State#state.port),
   NewState =
