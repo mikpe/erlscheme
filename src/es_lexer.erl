@@ -426,7 +426,7 @@ scan_hex_scalar_value(LI, Delimiter, Num) ->
               erlang:throw({expected_delimiter, Ch})
           end;
         ';' ->
-          case Ch =:= ';' of
+          case Ch =:= $; of
             true ->
               es_lexinput:read_char(LI);
             false ->
