@@ -366,9 +366,11 @@ scan_string_backslash(LI, Acc) ->
 %% <symbol element>, after seeing a backslash.  Apart from <string gap>,
 %% the differences between <string element> and <symbol element> in R7RS
 %% 7.1.1 seem like documentation mistakes, so we deliberately allow the
-%% same escape sequences for both contexts.  <string gap> is handled by
-%% tagging and returning any unrecognized character, letting the context
-%% determine whether that character is valid or not.
+%% same escape sequences for both contexts.  (R7RSSmallErrata.txt agrees,
+%% stating that \| should be permitted in strings, and that strings and
+%% symbols should accept the same escape sequences.)  <string gap> is
+%% handled by tagging and returning any unrecognized character, letting
+%% the context determine whether that character is valid or not.
 
 scan_inline_escape(LI) -> % return Octet or {error, Ch}
   case es_lexinput:read_char(LI) of
