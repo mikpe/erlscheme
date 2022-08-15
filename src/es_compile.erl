@@ -221,7 +221,7 @@ translate_try(Expr, Var, Body, EVar, Handler, FEnv) ->
              [cerl:c_var(Var)],
              translate_expr(Body, FEnv),
              [CVarClass, CVarReason, CVarRawStack],
-             cerl:c_let([CVarStack], cerl:c_primop('build_stacktrace', [CVarRawStack]),
+             cerl:c_let([CVarStack], cerl:c_primop(cerl:c_atom('build_stacktrace'), [CVarRawStack]),
                         cerl:c_let([cerl:c_var(EVar)], cerl:c_tuple([CVarClass, CVarReason, CVarStack]),
                                    translate_expr(Handler, FEnv)))).
 
@@ -239,7 +239,7 @@ translate_after(CInnerTry, After, FEnv) ->
                                    CVarOf),
                         [CVarClass, CVarReason, CVarRawStack],
                         cerl:c_seq(cerl:c_apply(CVarAfter, []),
-                                   cerl:c_primop('raise', [CVarRawStack, CVarReason])))).
+                                   cerl:c_primop(cerl:c_atom('raise'), [CVarRawStack, CVarReason])))).
 
 translate_tuple(Exprs, FEnv) ->
   cerl:c_tuple(lists:map(fun(Expr) -> translate_expr(Expr, FEnv) end, Exprs)).
