@@ -321,5 +321,4 @@ wildpat() ->
 newvar() ->
   %% Neither cerl, core_lint, nor core_pp reject negative numeric variable names,
   %% but the BEAM compiler throws syntax errors on .core files containing them.
-  %% FIXME: check if this still is true
   cerl:c_var(erlang:unique_integer([positive])).
