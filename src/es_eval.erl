@@ -100,7 +100,6 @@ interpret_cons(Hd, Tl, Env) ->
 
 interpret_define(Var, Expr, Env) ->
   %% This is restricted, by macro-expansion and parsing, to the top-level.
-  %% TODO: ensure we return a valid Scheme datum here
   es_gloenv:enter_var(Var, interpret(Expr, Env)).
 
 interpret_glovar(Var) ->
