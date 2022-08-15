@@ -140,24 +140,17 @@ expand_case_clause([Pat | Exprs], SynEnv) ->
   [Pat, ['begin' | expand_list(Exprs, SynEnvClause)]].
 
 %% (cond <clause>+)
-expand_cond([_Cond, Clause | Rest], SynEnv) ->
-  {expand_cond(Clause, Rest, SynEnv), SynEnv}.
+expand_cond([Cond | Clauses], SynEnv) ->
+  {[Cond | lists:map(fun (Clause) -> expand_cond_clause(Clause, SynEnv) end, Clauses)], SynEnv}.
 
-expand_cond(['else' | Exprs], [], SynEnv) ->
-  %% TODO: R7RS states that (cond (else <exprs>)) reduces to (begin <exprs>), but
-  %% I think that's wrong since (begin ..) is special in <toplevel> and <body>,
-  %% allowing <exprs> to insert internal definitions in the surrounding context.
-  ['begin' | expand_list(Exprs, SynEnv)];
-expand_cond([Test], Rest, SynEnv) ->
-  %% TODO: generate (let ((<var> <test>)) (if <var> <var> <rest of cond>)) directly
-  ['or', expand_expr(Test, SynEnv), expand_cond_rest(Rest, SynEnv)];
-expand_cond([Test | Exprs], Rest, SynEnv) ->
-  %% TODO: this fails to handle (<test> => <expr>) which should become something
-  %% like (let ((<var> <test>)) (if <var> (<expr> <var>) <rest of cond>)).
-  ['if', expand_expr(Test, SynEnv), ['begin' | expand_list(Exprs, SynEnv)], expand_cond_rest(Rest, SynEnv)].
-
-expand_cond_rest([Clause | Rest], SynEnv) -> expand_cond(Clause, Rest, SynEnv);
-expand_cond_rest([], _SynEnv) -> expand_unspecified().
+expand_cond_clause(['else' | Exprs], SynEnv) ->
+  ['else' | ['begin' | expand_list(Exprs, SynEnv)]];
+expand_cond_clause([Test], SynEnv) ->
+  [expand_expr(Test, SynEnv)];
+expand_cond_clause([Test, '=>', Expr], SynEnv) ->
+  [expand_expr(Test, SynEnv), '=>', expand_expr(Expr, SynEnv)];
+expand_cond_clause([Test | Exprs], SynEnv) ->
+  [expand_expr(Test, SynEnv), ['begin' | expand_list(Exprs, SynEnv)]].
 
 %% (lambda <formals> <body>+)
 expand_lambda([Lambda, Formals | Body], SynEnv) ->
@@ -256,10 +249,6 @@ expand_toplevel_forms([Form | Forms], SynEnv, Acc) ->
   expand_toplevel_forms(Forms, NewSynEnv, [Expanded | Acc]);
 expand_toplevel_forms(_Forms = [], SynEnv, Acc) ->
   {lists:reverse(Acc), SynEnv}.
-
-%% Sometimes we need to generate an unspecified value.
-expand_unspecified() ->
-  ['quote', es_datum:unspecified()].
 
 bind_pat_vars(Pat, SynEnv) ->
   case Pat of
