@@ -163,10 +163,11 @@ scan_hash_norm(Ch) -> % normalize case of relevant characters
 
 scan_boolean(LI, Ch) ->
   {token_identifier, String} = scan_simple_identifier(LI, [Ch]),
-  String2 = string:to_upper(String),
-  if String2 == "T"; String2 == "TRUE" -> % TODO: #TRUE seems to be new in R7RS
+  %% R6RS and R7RS both state that booleans are case-insensitive.
+  String2 = string:to_lower(String),
+  if String2 =:= "t"; String2 =:= "true" -> % R7RS added #true
       token_true;
-     String2 == "F"; String2 == "FALSE" -> % TODO: #FALSE seems to be new in R7RS
+     String2 =:= "f"; String2 =:= "false" -> % R7RS added #false
       token_false;
      true ->
       erlang:throw({invalid_boolean, String})
