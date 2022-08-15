@@ -173,6 +173,8 @@ parse_form(Hd, Tl, Env, IsToplevel) ->
       parse_begin(Tl, Env, IsToplevel);
     'case' ->
       parse_case(Tl, Env);
+    'cond' ->
+      parse_cond(Tl, Env);
     'define' ->
       parse_define(Tl, Env, IsToplevel);
     'if' ->
@@ -267,6 +269,40 @@ default_case_clause() ->
   ErrorFun = {'ES:PRIMOP', 'ES:COLON', [{'ES:QUOTE', 'erlang'}, {'ES:QUOTE', 'error'}, {'ES:QUOTE', 1}]},
   ErrorExpr = {'ES:PRIMOP', 'ES:APPLY', [ErrorFun, {'ES:QUOTE', 'case_clause'}]},
   [{'ES:WILD', {'ES:QUOTE', 'true'}, ErrorExpr}].
+
+parse_cond(Tl, Env) ->
+  case Tl of
+    [Clause | Clauses] ->
+      parse_cond_clauses(Clause, Clauses, Env);
+    _ ->
+      erlang:throw({bad_cond, Tl})
+  end.
+
+parse_cond_clauses(['else' | Exprs], [], Env) ->
+  %% (begin <Exprs>..)
+  parse_begin(Exprs, Env, _IsToplevel = false);
+parse_cond_clauses([Test], Rest, Env) ->
+  %% (let ((<Var> <Test>)) (if <Var> <Var> (cond <Rest>..)))
+  Var = newvar(),
+  VarExp = {'ES:LOCVAR', Var},
+  {'ES:LET', [{Var, parse(Test, Env)}],
+   {'ES:IF', VarExp, VarExp, parse_cond_clauses(Rest, Env)}};
+parse_cond_clauses([Test, '=>', Expr], Rest, Env) ->
+  %% (let ((<Var> <Test>)) (if <Var> (<Expr> <Var>) (cond <Rest>..)))
+  Var = newvar(),
+  VarExp = {'ES:LOCVAR', Var},
+  {'ES:LET', [{Var, parse(Test, Env)}],
+   {'ES:IF', VarExp,
+             {'ES:PRIMOP', 'ES:APPLY', [parse(Expr, Env), VarExp]},
+             parse_cond_clauses(Rest, Env)}};
+parse_cond_clauses([Test | Exprs], Rest, Env) ->
+  %% (if <Test> (begin <Exprs>..) (cond <Rest>..))
+  {'ES:IF', parse(Test, Env),
+            parse_begin(Exprs, Env, _IsToplevel = false),
+            parse_cond_clauses(Rest, Env)}.
+
+parse_cond_clauses([Clause | Rest], Env) -> parse_cond_clauses(Clause, Rest, Env);
+parse_cond_clauses([], _Env) -> {'ES:QUOTE', es_datum:unspecified()}.
 
 parse_define(Tl, Env, IsToplevel) ->
   case {Tl, IsToplevel} of
