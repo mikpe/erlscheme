@@ -18,5 +18,5 @@
  [ {description, "A version of the Scheme programming language for the Erlang/OTP VM"}
  , {vsn, git}
  , {modules, []}
- , {applications, [kernel, stdlib, lib]}
+ , {applications, [kernel, stdlib, compiler]}
  ]}.
