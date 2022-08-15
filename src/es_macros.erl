@@ -35,6 +35,9 @@
         , enter_syntax/2
         ]).
 
+-export_type([ synenv/0
+             ]).
+
 -define(macro, '%macro').
 -define(syntax, '%syntax').
 

@@ -29,6 +29,9 @@
         , overlay/2
         ]).
 
+-export_type([ env/0
+             ]).
+
 -type env() :: map().
 
 -spec empty() -> env().

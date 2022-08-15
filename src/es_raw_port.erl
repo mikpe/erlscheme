@@ -50,6 +50,9 @@
         , code_change/3
         ]).
 
+-export_type([ es_port/0
+             ]).
+
 -type es_port() :: pid().
 
 %% commands

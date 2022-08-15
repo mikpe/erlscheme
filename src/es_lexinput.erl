@@ -42,6 +42,9 @@
         , code_change/3
         ]).
 
+-export_type([ lexinput/0
+             ]).
+
 -type lexinput() :: pid().
 
 %% commands

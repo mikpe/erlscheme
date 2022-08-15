@@ -37,6 +37,9 @@
         , nested/1
         ]).
 
+-export_type([ synenv/0
+             ]).
+
 -define(gloenv, gloenv).
 -define(env, env).
 -define(nested, nested).
