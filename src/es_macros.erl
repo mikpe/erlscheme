@@ -152,10 +152,16 @@ expand_cond_clause([Test, '=>', Expr], SynEnv) ->
 expand_cond_clause([Test | Exprs], SynEnv) ->
   [expand_expr(Test, SynEnv), ['begin' | expand_list(Exprs, SynEnv)]].
 
+%% (lambda m:f/a)
 %% (lambda <formals> <body>+)
-expand_lambda([Lambda, Formals | Body], SynEnv) ->
-  SynEnvBody = bind_vars(Formals, nested(SynEnv)),
-  {[Lambda, Formals | expand_body(Body, SynEnvBody)], SynEnv}.
+expand_lambda([Lambda | Tl], SynEnv) ->
+  case Tl of
+    [M, ':', F, '/', A] ->
+      {[Lambda, expand_expr(M, SynEnv), ':', expand_expr(F, SynEnv), '/', expand_expr(A, SynEnv)], SynEnv};
+    [Formals | Body] ->
+      SynEnvBody = bind_vars(Formals, nested(SynEnv)),
+      {[Lambda, Formals | expand_body(Body, SynEnvBody)], SynEnv}
+  end.
 
 %% (define <var> <expr>)
 %% (define (<var> <formals>*) <body>+)
