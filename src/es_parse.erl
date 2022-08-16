@@ -237,17 +237,16 @@ parse_begin(Tl, Env, IsToplevel) ->
       erlang:throw({bad_begin, Tl})
   end.
 
-parse_call(Hd0, Tl, Env) ->
-  Hd = parse(Hd0, Env),
+parse_call(Hd, Tl, Env) ->
   {Fun, Args1} =
     case Tl of
       [':', F0 | Args0] ->
-        M = quote_if_glovar(Hd),
-        F = quote_if_glovar(parse(F0, Env)),
+        M = quote_if_glovar(Hd, Env),
+        F = quote_if_glovar(F0, Env),
         A = {'ES:QUOTE', length(Args0)},
         {{'ES:PRIMOP', 'ES:COLON', [M, F, A]}, Args0};
       _ ->
-        {Hd, Tl}
+        {parse(Hd, Env), Tl}
     end,
   Args = [parse(Arg, Env) || Arg <- Args1],
   %% Recognize calls to special built-ins:
@@ -328,7 +327,7 @@ parse_if(Tl, Env) ->
 parse_lambda(Tl, Env) ->
   case Tl of
     [M, ':', F, '/', A] ->
-      {'ES:PRIMOP', 'ES:COLON', [quote_if_glovar(parse(M, Env)), quote_if_glovar(parse(F, Env)), parse(A, Env)]};
+      {'ES:PRIMOP', 'ES:COLON', [quote_if_glovar(M, Env), quote_if_glovar(F, Env), parse(A, Env)]};
     [Formals, Body] ->
       parse_plain_lambda(Formals, Body, Env);
     _ ->
@@ -339,7 +338,8 @@ parse_plain_lambda(Formals, Body, Env) ->
   ScopeEnv = parse_formals(Formals, es_env:empty()),
   {'ES:LAMBDA', Formals, parse(Body, es_env:overlay(Env, ScopeEnv))}.
 
-quote_if_glovar(AST) ->
+quote_if_glovar(Sexpr, Env) ->
+  AST = parse(Sexpr, Env),
   case AST of
     {'ES:GLOVAR', Atom} -> {'ES:QUOTE', Atom};
     _ -> AST
