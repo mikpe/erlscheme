@@ -27,6 +27,7 @@
 %%%   bodies as ASTs, not as S-expressions.
 %%% - Variadic functions (with "rest" parameters) are not supported, since
 %%%   they mess up calling conventions and interoperability with Erlang.
+%%% - (set! ...) is restricted to assigning global variables in the REPL.
 %%%
 %%% Extensions:
 %%% - (: M F A) is equivalent to Erlang's fun M:F/A
@@ -81,6 +82,8 @@ interpret(AST, Env) ->
       interpret_primop(PrimOp, Actuals, Env);
     {'ES:QUOTE', Value} ->
       interpret_quote(Value);
+    {'ES:SET!', Var, Expr} ->
+      'interpret_set!'(Var, Expr, Env);
     {'ES:TRY', Expr, Var, Body, EVar, Handler, After} ->
       interpret_try(Expr, Var, Body, EVar, Handler, After, Env);
     {'ES:TUPLE', Exprs} ->
@@ -165,6 +168,13 @@ interpret_primop(PrimOp, Args0, Env) ->
 
 interpret_quote(Value) ->
   Value.
+
+'interpret_set!'(Var, Expr, Env) ->
+  %% This can only assign global variables.
+  case es_gloenv:is_bound_var(Var) of
+    true -> es_gloenv:enter_var(Var, interpret(Expr, Env));
+    false -> throw({unbound_variable, Var})
+  end.
 
 interpret_try(Expr, Var, Body, EVar, Handler, _After = [], Env) ->
   interpret_try(Expr, Var, Body, EVar, Handler, Env);
