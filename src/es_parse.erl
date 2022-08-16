@@ -209,6 +209,9 @@ parse_and(Tl, Env) ->
   end.
 
 parse_atom(Atom, Env) ->
+  parse_atom(Atom, Env, _QuoteIfGlovar = false).
+
+parse_atom(Atom, Env, QuoteIfGlovar) ->
   case Atom of
     true ->
       {'ES:QUOTE', Atom};
@@ -219,7 +222,13 @@ parse_atom(Atom, Env) ->
         {value, []} ->
           {'ES:LOCVAR', Atom};
         {value, A} when is_integer(A) ->
-          {'ES:GLOVAR', Atom};
+          if QuoteIfGlovar -> % this is the M or F in M:F
+              {'ES:QUOTE', Atom};
+             true ->
+              {'ES:GLOVAR', Atom}
+          end;
+        none when QuoteIfGlovar -> % this is the M or F in M:F
+          {'ES:QUOTE', Atom};
         none ->
           {'ES:GLOVAR', Atom}
       end
@@ -339,10 +348,10 @@ parse_plain_lambda(Formals, Body, Env) ->
   {'ES:LAMBDA', Formals, parse(Body, es_env:overlay(Env, ScopeEnv))}.
 
 quote_if_glovar(Sexpr, Env) ->
-  AST = parse(Sexpr, Env),
-  case AST of
-    {'ES:GLOVAR', Atom} -> {'ES:QUOTE', Atom};
-    _ -> AST
+  if is_atom(Sexpr) ->
+       parse_atom(Sexpr, Env, _QuoteIfGlovar = true);
+     true ->
+       parse(Sexpr, Env)
   end.
 
 parse_formals(Formals, ScopeEnv) ->
