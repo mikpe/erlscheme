@@ -45,35 +45,35 @@
 %% API -------------------------------------------------------------------------
 
 init() ->
-  define_var('*', fun erlang:'*'/2),
-  define_var('+', fun erlang:'+'/2),
-  define_var('eq?', fun erlang:'=:='/2),
-  define_var('memq', fun ?MODULE:memq/2),
-  define_var('symbol?', fun es_datum:is_symbol/1),
-  define_var('zero?', fun ?MODULE:'zero?'/1),
-  define_var('null?', fun ?MODULE:'null?'/1),
-  define_var('pair?', fun ?MODULE:'pair?'/1),
-  define_var('list?', fun ?MODULE:'list?'/1),
-  define_var('cons', fun ?MODULE:cons/2),
-  define_var('append', fun erlang:'++'/2),
-  define_var('reverse', fun lists:reverse/1),
-  define_var('car', fun ?MODULE:car/1),
-  define_var('cdr', fun ?MODULE:cdr/1),
-  define_var('caar', fun ?MODULE:caar/1),
-  define_var('cadr', fun ?MODULE:cadr/1),
-  define_var('cddr', fun ?MODULE:cddr/1),
-  define_var('caddr', fun ?MODULE:caddr/1),
-  define_var('cdddr', fun ?MODULE:cdddr/1),
-  define_var('vector?', fun erlang:is_tuple/1),
-  define_var('eval', fun ?MODULE:eval/1),
-  define_var('load', fun ?MODULE:load/1),
-  define_var('compile', fun es_compile:file/1),
-  ok.
+  maps:foreach(fun es_gloenv:enter_var/2, env()).
 
 %% Internals -------------------------------------------------------------------
 
-define_var(Name, Fun) ->
-  es_gloenv:enter_var(Name, Fun).
+env() ->
+  #{ '*' => fun erlang:'*'/2
+   , '+' => fun erlang:'+'/2
+   , 'eq?' => fun erlang:'=:='/2
+   , 'memq' => fun ?MODULE:memq/2
+   , 'symbol?' => fun es_datum:is_symbol/1
+   , 'zero?' => fun ?MODULE:'zero?'/1
+   , 'null?' => fun ?MODULE:'null?'/1
+   , 'pair?' => fun ?MODULE:'pair?'/1
+   , 'list?' => fun ?MODULE:'list?'/1
+   , 'cons' => fun ?MODULE:cons/2
+   , 'append' => fun erlang:'++'/2
+   , 'reverse' => fun lists:reverse/1
+   , 'car' => fun ?MODULE:car/1
+   , 'cdr' => fun ?MODULE:cdr/1
+   , 'caar' => fun ?MODULE:caar/1
+   , 'cadr' => fun ?MODULE:cadr/1
+   , 'cddr' => fun ?MODULE:cddr/1
+   , 'caddr' => fun ?MODULE:caddr/1
+   , 'cdddr' => fun ?MODULE:cdddr/1
+   , 'vector?' => fun erlang:is_tuple/1
+   , 'eval' => fun ?MODULE:eval/1
+   , 'load' => fun ?MODULE:load/1
+   , 'compile' => fun es_compile:file/1
+   }.
 
 'memq'(X, L = [X | _]) -> L;
 'memq'(X, [_ | L]) -> 'memq'(X, L);
