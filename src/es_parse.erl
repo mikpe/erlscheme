@@ -230,7 +230,21 @@ parse_atom(Atom, Env, QuoteIfGlovar) ->
         none when QuoteIfGlovar -> % this is the M or F in M:F
           {'ES:QUOTE', Atom};
         none ->
-          {'ES:GLOVAR', Atom}
+          %% In modules replace global variables with the MFAs they denote.
+          case is_module(Env) andalso es_env:lookup(es_lib_scheme_base:env(), Atom) of
+            {value, Fun} when is_function(Fun) ->
+              case erlang:fun_info(Fun, type) of
+                {type, external} ->
+                  {module, M} = erlang:fun_info(Fun, module),
+                  {name, F} = erlang:fun_info(Fun, name),
+                  {arity, A} = erlang:fun_info(Fun, arity),
+                  {'ES:PRIMOP', 'ES:COLON', [{'ES:QUOTE', M}, {'ES:QUOTE', F}, {'ES:QUOTE', A}]};
+                {type, local} ->
+                  {'ES:GLOVAR', Atom}
+              end;
+            _ ->
+              {'ES:GLOVAR', Atom}
+          end
       end
   end.
 
@@ -677,6 +691,9 @@ is_bound_in_pat(Env, Var) ->
 
 is_global_in_repl(Env, Var) ->
   (not es_env:is_bound(Env, Var)) andalso (es_env:get(Env, ?MARKER_KEY) =:= 'repl').
+
+is_module(Env) ->
+  es_env:get(Env, ?MARKER_KEY) =:= 'module'.
 
 newvar() ->
   erlang:unique_integer([positive]).
