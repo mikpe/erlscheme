@@ -109,7 +109,6 @@
         , is_eof_object/1
         , is_string/1
         , is_symbol/1
-        , is_vector/1
         , integer_to_char/1
         , list_to_vector/1
         , mk_eof_object/0
@@ -161,8 +160,6 @@ string_to_binary(S) -> S.
 is_symbol(X) -> is_atom(X) andalso not erlang:is_boolean(X).
 
 %% Vectors
-
-is_vector(X) -> is_tuple(X).
 
 list_to_vector(L) -> erlang:list_to_tuple(L).
 

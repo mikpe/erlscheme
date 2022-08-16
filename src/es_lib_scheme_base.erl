@@ -20,49 +20,64 @@
 
 -module(es_lib_scheme_base).
 
--export([init/0]).
+%% API
+-export([ init/0
+        ]).
+
+%% Base Library functions implemented in this module
+-export([ car/1
+        , caar/1
+        , cadr/1
+        , caddr/1
+        , cdr/1
+        , cddr/1
+        , cdddr/1
+        , cons/2
+        , eval/1
+        , 'list?'/1
+        , load/1
+        , memq/2
+        , 'null?'/1
+        , 'pair?'/1
+        , 'zero?'/1
+        ]).
+
+%% API -------------------------------------------------------------------------
 
 init() ->
-  define_var('*', fun '*'/2),
-  define_var('+', fun '+'/2),
-  define_var('eq?', fun 'eq?'/2),
-  define_var('memq', fun 'memq'/2),
-  define_var('symbol?', fun 'symbol?'/1),
-  define_var('zero?', fun 'zero?'/1),
-  define_var('null?', fun 'null?'/1),
-  define_var('pair?', fun 'pair?'/1),
-  define_var('list?', fun 'list?'/1),
-  define_var('cons', fun 'cons'/2),
-  define_var('append', fun 'append'/2),
-  define_var('reverse', fun 'reverse'/1),
-  define_var('car', fun 'car'/1),
-  define_var('cdr', fun 'cdr'/1),
-  define_var('caar', fun 'caar'/1),
-  define_var('cadr', fun 'cadr'/1),
-  define_var('cddr', fun 'cddr'/1),
-  define_var('caddr', fun 'caddr'/1),
-  define_var('cdddr', fun 'cdddr'/1),
-  define_var('vector?', fun 'vector?'/1),
-  define_var('eval', fun 'eval'/1),
-  define_var('load', fun 'load'/1),
-  define_var('compile', fun 'compile'/1),
+  define_var('*', fun erlang:'*'/2),
+  define_var('+', fun erlang:'+'/2),
+  define_var('eq?', fun erlang:'=:='/2),
+  define_var('memq', fun ?MODULE:memq/2),
+  define_var('symbol?', fun es_datum:is_symbol/1),
+  define_var('zero?', fun ?MODULE:'zero?'/1),
+  define_var('null?', fun ?MODULE:'null?'/1),
+  define_var('pair?', fun ?MODULE:'pair?'/1),
+  define_var('list?', fun ?MODULE:'list?'/1),
+  define_var('cons', fun ?MODULE:cons/2),
+  define_var('append', fun erlang:'++'/2),
+  define_var('reverse', fun lists:reverse/1),
+  define_var('car', fun ?MODULE:car/1),
+  define_var('cdr', fun ?MODULE:cdr/1),
+  define_var('caar', fun ?MODULE:caar/1),
+  define_var('cadr', fun ?MODULE:cadr/1),
+  define_var('cddr', fun ?MODULE:cddr/1),
+  define_var('caddr', fun ?MODULE:caddr/1),
+  define_var('cdddr', fun ?MODULE:cdddr/1),
+  define_var('vector?', fun erlang:is_tuple/1),
+  define_var('eval', fun ?MODULE:eval/1),
+  define_var('load', fun ?MODULE:load/1),
+  define_var('compile', fun es_compile:file/1),
   ok.
+
+%% Internals -------------------------------------------------------------------
 
 define_var(Name, Fun) ->
   es_gloenv:enter_var(Name, Fun).
 
-'*'(X, Y) -> X * Y.
-
-'+'(X, Y) -> X + Y.
-
-'eq?'(X, Y) -> X =:= Y.
-
 'memq'(X, L = [X | _]) -> L;
 'memq'(X, [_ | L]) -> 'memq'(X, L);
 'memq'(_, []) -> false.
-
-'symbol?'(X) ->
-  es_datum:is_symbol(X).
 
 'zero?'(X) ->
   X == 0.
@@ -82,11 +97,6 @@ listp([]) -> true;
 listp(_) -> false.
 
 'cons'(X, Y) -> [X | Y].
-
-'append'(X, Y) -> X ++ Y.
-
-'reverse'(X) ->
-  lists:reverse(X).
 
 'car'([X | _]) ->
   X.
@@ -109,15 +119,9 @@ listp(_) -> false.
 'cdddr'([_, _, _ | Y]) ->
   Y.
 
-'vector?'(X) ->
-  es_datum:is_vector(X).
-
 'eval'(X) -> % TODO: this should be /2 and take an environment specifier
   {Value, _SynEnv} = es_eval:eval(X, es_synenv:gloenv()),
   Value.
 
 'load'(X) -> % TODO: should this take an environment specifier like eval?
   es_load:load(X, es_synenv:gloenv()).
-
-'compile'(X) ->
-  es_compile:file(X).
