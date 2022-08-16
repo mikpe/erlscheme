@@ -26,6 +26,7 @@
 %%% Notes:
 %%% - Variadic functions (with "rest" parameters) are not supported, since
 %%%   they mess up calling conventions and interoperability with Erlang.
+%%% - (set! ...) is restricted to assigning global variables in the REPL.
 %%%
 %%% Extensions:
 %%% - (lambda M:F/A) evaluates to the function F of arity A exported from module M,
@@ -187,6 +188,8 @@ parse_form(Hd, Tl, Env, IsToplevel) ->
       parse_letrec(Tl, Env);
     'quote' ->
       parse_quote(Tl);
+    'set!' ->
+      'parse_set!'(Tl, Env);
     'try' ->
       parse_try(Tl, Env);
     _ ->
@@ -423,6 +426,19 @@ parse_quote(Tl) ->
       erlang:throw({bad_quote, Tl})
   end.
 
+'parse_set!'(Tl, Env) ->
+  case Tl of
+    [Var, Expr] when is_atom(Var) ->
+      case is_global_in_repl(Env, Var) of
+        true ->
+          {'ES:SET!', Var, parse(Expr, Env)};
+        false ->
+          erlang:throw({'bad_set!', Tl})
+      end;
+    _ ->
+      erlang:throw({'bad_set!', Tl})
+  end.
+
 %% Erlang-like try construct:
 %%
 %% (try Expr
@@ -618,6 +634,8 @@ check_guard(Guard) ->
       end;
     {'ES:QUOTE', _} ->
       ok;
+    {'ES:SET!', _, _} ->
+      invalid_guard(Guard);
     {'ES:TRY', _, _, _, _, _, _} ->
       invalid_guard(Guard);
     {'ES:TUPLE', Exprs} ->
@@ -647,6 +665,9 @@ is_bound_in_pat(Env, Var) ->
   es_env:is_bound(Env, Var) orelse
   (es_env:get(Env, ?MARKER_KEY) =:= 'repl' andalso
    es_gloenv:is_bound_var(Var)).
+
+is_global_in_repl(Env, Var) ->
+  (not es_env:is_bound(Env, Var)) andalso (es_env:get(Env, ?MARKER_KEY) =:= 'repl').
 
 newvar() ->
   erlang:unique_integer([positive]).
