@@ -21,7 +21,7 @@
 -module(es_lib_scheme_base).
 
 %% API
--export([ init/0
+-export([ env/0
         ]).
 
 %% Base Library functions implemented in this module
@@ -43,11 +43,6 @@
         ]).
 
 %% API -------------------------------------------------------------------------
-
-init() ->
-  maps:foreach(fun es_gloenv:enter_var/2, env()).
-
-%% Internals -------------------------------------------------------------------
 
 env() ->
   #{ '*' => fun erlang:'*'/2
@@ -74,6 +69,8 @@ env() ->
    , 'load' => fun ?MODULE:load/1
    , 'compile' => fun es_compile:file/1
    }.
+
+%% Internals -------------------------------------------------------------------
 
 'memq'(X, L = [X | _]) -> L;
 'memq'(X, [_ | L]) -> 'memq'(X, L);

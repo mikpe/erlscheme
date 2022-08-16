@@ -32,7 +32,7 @@ init() ->
   try
     io:format("Welcome to ErlScheme version ~s~n", [?VSN]),
     es_gloenv:init(),
-    es_lib_scheme_base:init(),
+    es_lib_scheme_base_init(),
     es_macros_init(),
     es_load_init(),
     P = es_raw_port:open_stdin(),
@@ -43,6 +43,9 @@ init() ->
 		[Class, Reason, Stack]),
       false
   end.
+
+es_lib_scheme_base_init() ->
+  maps:foreach(fun es_gloenv:enter_var/2, es_lib_scheme_base:env()).
 
 es_macros_init() ->
   lists:foreach(
