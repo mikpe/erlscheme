@@ -40,8 +40,8 @@ init() ->
     es_lexinput:open(P, "<stdin>")
   catch
     Class:Reason:Stack ->
-      io:format("ErlScheme: fatal error ~p:~p during startup~n~p~n",
-		[Class, Reason, Stack]),
+      io:format("fatal ~p during startup: ~s\n", [Class, es_error:format(Reason)]),
+      io:format("stack trace:\n~p\n", [Stack]),
       false
   end.
 
@@ -84,5 +84,7 @@ rep(N, LI) ->
     end
   catch
     Class:Reason:Stack ->
-      io:format("caught ~p:~p~n~p~n", [Class, Reason, Stack])
+      %% TODO: convert all legacy throws to errors and only format errors
+      io:format("caught ~p: ~s\n", [Class, es_error:format(Reason)]),
+      io:format("stack trace:\n~p\n", [Stack])
   end.
