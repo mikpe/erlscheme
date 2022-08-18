@@ -30,7 +30,8 @@ start() ->
 
 init() ->
   try
-    io:format("Welcome to ErlScheme version ~s~n", [?VSN]),
+    io:format("Welcome to ErlScheme version ~s", [?VSN]),
+    io:format("~s\n", [erlang:system_info(system_version)]),
     es_gloenv:init(),
     es_lib_scheme_base_init(),
     es_macros_init(),
@@ -60,7 +61,7 @@ es_load_init() ->
   true = filelib:is_dir(ScmPrefix),
   erlang:put('es_load_prefix', ScmPrefix),
   es_load:load(es_datum:binary_to_string(<<"es-init.scm">>), es_synenv:gloenv()),
-  io:format(" done~n").
+  io:format(" done\n\n").
 
 repl(N, LI) ->
   case rep(N, LI) of
