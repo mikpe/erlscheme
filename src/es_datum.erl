@@ -106,6 +106,7 @@
 
 %% API
 -export([ binary_to_string/1
+        , format_error/1
         , is_eof_object/1
         , is_string/1
         , is_symbol/1
@@ -145,7 +146,7 @@ is_eof_object(X) ->
 %% This has to return an exported fun to make fun_info(_, name) well-defined.
 mk_eof_object() -> fun ?MODULE:?the_eof_object/0.
 
-?the_eof_object() -> error("eof-object was called").
+?the_eof_object() -> error({?MODULE, eof_object_was_called}).
 
 %% Strings
 
@@ -173,3 +174,14 @@ unspecified() -> [].
 raise({error, Reason, _Stack}) -> erlang:error(Reason);
 raise({exit,  Reason, _Stack}) -> erlang:exit(Reason);
 raise({throw, Reason, _Stack}) -> erlang:throw(Reason).
+
+%% Error Formatting ------------------------------------------------------------
+
+-spec format_error(term()) -> io_lib:chars().
+format_error(Reason) ->
+  case Reason of
+    eof_object_was_called ->
+      "eof-object was called";
+    _ ->
+      io_lib:format("~p", [Reason])
+  end.
