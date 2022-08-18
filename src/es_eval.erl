@@ -37,6 +37,7 @@
 -module(es_eval).
 
 -export([ eval/2
+        , format_error/1
         ]).
 
 -type sexpr() :: term().
@@ -108,7 +109,7 @@ interpret_define(Var, Expr, Env) ->
 interpret_glovar(Var) ->
   case es_gloenv:lookup_var(Var) of
     {value, Val} -> Val;
-    none -> throw({unbound_variable, Var})
+    none -> eval_error({unbound_variable, Var})
   end.
 
 interpret_if(Pred, Then, Else, Env) ->
@@ -176,7 +177,7 @@ interpret_quote(Value) ->
   %% This can only assign global variables.
   case es_gloenv:is_bound_var(Var) of
     true -> es_gloenv:enter_var(Var, interpret(Expr, Env));
-    false -> throw({unbound_variable, Var})
+    false -> eval_error({unbound_variable, Var})
   end.
 
 interpret_try(Expr, Var, Body, EVar, Handler, _After = [], Env) ->
@@ -256,7 +257,7 @@ match_pat(Pat, Val, Env) ->
     {'ES:TUPLE', Pats} ->
       case is_tuple(Val) of
         true ->
-	  case tuple_size(Val) =:= length(Pats) of
+          case tuple_size(Val) =:= length(Pats) of
             true -> match_tuple(Pats, 1, Val, Env);
             false -> ?nomatch
           end;
@@ -335,5 +336,21 @@ make_function(Formals, BodyFn) ->
         BodyFn([A1, A2, A3, A4, A5, A6, A7, A8, A9, A10])
       end;
     Arity ->
-      throw({argument_limit, Arity})
+      eval_error({argument_limit, Arity})
+  end.
+
+%% Error Formatting ------------------------------------------------------------
+
+eval_error(Reason) ->
+  error({?MODULE, Reason}).
+
+-spec format_error(term()) -> io_lib:chars().
+format_error(Reason) ->
+  case Reason of
+    {unbound_variable, Var} ->
+      io_lib:format("unbound variable: ~p", [Var]);
+    {argument_limit, Arity} ->
+      io_lib:format("arity limit exceeded: ~p", [Arity]);
+    _ ->
+      io_lib:format("~p", [Reason])
   end.
