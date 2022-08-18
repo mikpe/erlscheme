@@ -26,10 +26,10 @@
 
 -export([ enter_expander/2
         , enter_var/2
-        , get_var/1
         , init/0
         , is_bound_var/1
         , lookup_expander/1
+        , lookup_var/1
         ]).
 
 -define(es_gloenv_tab, es_gloenv_tab).
@@ -44,13 +44,6 @@
 init() ->
   ets:new(?es_gloenv_tab, [public, named_table, {read_concurrency, true}]),
   ok.
-
--spec get_var(name()) -> term().
-get_var(Name) ->
-  case lookup(Name, ?tag_var) of
-    {value, Value} -> Value;
-    none -> throw({unbound_variable, Name})
-  end.
 
 -spec enter_expander(name(), term()) -> true.
 enter_expander(Name, Value) ->
@@ -70,6 +63,10 @@ is_bound_var(Name) ->
 -spec lookup_expander(name()) -> {value, term()} | none.
 lookup_expander(Name) ->
   lookup(Name, ?tag_expander).
+
+-spec lookup_var(name()) -> {value, term()} | none.
+lookup_var(Name) ->
+  lookup(Name, ?tag_var).
 
 %% Internals -------------------------------------------------------------------
 

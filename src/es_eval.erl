@@ -106,7 +106,10 @@ interpret_define(Var, Expr, Env) ->
   es_gloenv:enter_var(Var, interpret(Expr, Env)).
 
 interpret_glovar(Var) ->
-  es_gloenv:get_var(Var).
+  case es_gloenv:lookup_var(Var) of
+    {value, Val} -> Val;
+    none -> throw({unbound_variable, Var})
+  end.
 
 interpret_if(Pred, Then, Else, Env) ->
   interpret(case interpret(Pred, Env) of false -> Else; _ -> Then end, Env).
@@ -266,7 +269,7 @@ match_pat(Pat, Val, Env) ->
 get_pat_var(Var, Env) ->
   case es_env:lookup(Env, Var) of
     {value, Val} -> Val;
-    none -> es_gloenv:get_var(Var)
+    none -> interpret_glovar(Var)
   end.
 
 match_tuple([], _I, _Tuple, Env) -> Env;
