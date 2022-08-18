@@ -21,6 +21,7 @@
 -module(es_compile).
 
 -export([ file/1
+        , file/2
         ]).
 
 -type datum() :: term().
@@ -44,9 +45,21 @@ file(Arg, Opts) ->
   end,
   CerlModule = translate_module(AST),
   {ok, _} = core_lint:module(CerlModule),
-  CoreFile = BaseName ++ ".core",
-  ok = file:write_file(CoreFile, io_lib:format("~s\n", [core_pp:format(CerlModule)])),
-  {ok, _} = compile:file(CoreFile, [from_core, verbose, report_errors, report_warnings]),
+  case proplists:get_bool(save_ast, Opts) of
+    true ->
+      ok = file:write_file(BaseName ++ ".core",
+                           io_lib:format("~s\n", [core_pp:format(CerlModule)]));
+    false ->
+      ok
+  end,
+  {ok, _ModuleName, BeamBin} = compile:forms(CerlModule, [from_core, verbose, report_errors, report_warnings]),
+  BeamName = BaseName ++ ".beam",
+  BeamPath =
+    case lists:keyfind(outdir, 1, Opts) of
+      {outdir, OutDir} -> filename:join(OutDir, BeamName);
+      false -> BeamName
+    end,
+  ok = file:write_file(BeamPath, BeamBin),
   ok.
 
 %% Internals -------------------------------------------------------------------
