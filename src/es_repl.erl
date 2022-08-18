@@ -55,7 +55,9 @@ es_macros_init() ->
 
 es_load_init() ->
   io:format("Loading es_init.scm ..."),
-  {ok, ScmPrefix} = es_path:lib_dir("scm"),
+  PrivDir = code:priv_dir(erlscheme),
+  ScmPrefix = filename:join(PrivDir, "scm"),
+  true = filelib:is_dir(ScmPrefix),
   erlang:put('es_load_prefix', ScmPrefix),
   es_load:load(es_datum:binary_to_string(<<"es-init.scm">>), es_synenv:gloenv()),
   io:format(" done~n").
