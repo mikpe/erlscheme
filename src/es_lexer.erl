@@ -30,7 +30,8 @@
 
 -module(es_lexer).
 
--export([ string_to_number/2
+-export([ format_error/1
+        , string_to_number/2
         , token/1
         ]).
 
@@ -87,10 +88,10 @@ token(LI) ->
                 Num when is_number(Num) ->
                   {token_number, Num};
                 false ->
-                  erlang:throw(invalid_number)
+                  lexer_error(invalid_number)
               end;
              true ->
-              erlang:throw({invalid_character, Ch})
+              lexer_error({invalid_character, Ch})
           end
       end
   end.
@@ -150,7 +151,7 @@ scan_hash(LI) ->
         Num when is_number(Num) ->
           {token_number, Num};
         false ->
-          erlang:throw(invalid_number)
+          lexer_error(invalid_number)
       end
   end.
 
@@ -170,7 +171,7 @@ scan_boolean(LI, Ch) ->
      String2 =:= "f"; String2 =:= "false" -> % R7RS added #false
       token_false;
      true ->
-      erlang:throw({invalid_boolean, String})
+      lexer_error({invalid_boolean, String})
   end.
 
 %% <peculiar identifier>
@@ -198,7 +199,7 @@ scan_pi_sign(LI, Ch0, IsNegative) ->
             Num when is_number(Num) ->
               {token_number, Num};
             false ->
-              erlang:throw(invalid_number)
+              lexer_error(invalid_number)
           end;
         false ->
           if Ch1 =:= 46 -> % dot, messes up erlang-mode :-(
@@ -214,7 +215,7 @@ scan_pi_sign(LI, Ch0, IsNegative) ->
         true ->
           {token_identifier, [Ch0]};
         false ->
-          erlang:throw(invalid_identifier)
+          lexer_error({invalid_identifier, [Ch0], Ch1})
       end
   end.
 
@@ -228,7 +229,7 @@ scan_pi_dot(LI, Acc, IsNegative) ->
             Num when is_number(Num) ->
               {token_number, Num};
             false ->
-              erlang:throw(invalid_number)
+              lexer_error(invalid_number)
           end;
         false -> % <dot subsequent>
           es_lexinput:read_char(LI),
@@ -241,10 +242,10 @@ scan_pi_dot(LI, Acc, IsNegative) ->
             [46] ->
               token_dot;
             [46, _] ->
-              erlang:throw(invalid_identifier)
+              lexer_error({invalid_identifier, lists:reverse(Acc)})
           end;
         false ->
-          erlang:throw(invalid_identifier)
+          lexer_error({invalid_identifier, lists:reverse(Acc), Ch})
       end
   end.
 
@@ -261,7 +262,7 @@ scan_simple_identifier(LI, Acc) ->
         true ->
           {token_identifier, lists:reverse(Acc)};
         false ->
-          erlang:throw({expected_delimiter, Ch})
+          lexer_error({invalid_identifier, lists:reverse(Acc), Ch})
       end
   end.
 
@@ -274,7 +275,7 @@ scan_vi(LI, Acc) ->
   Ch = es_lexinput:read_char(LI),
   case Ch of
     -1 ->
-      erlang:throw(premature_eof);
+      lexer_error(premature_eof);
     $| ->
       {token_identifier, lists:reverse(Acc)};
     $\\ ->
@@ -288,7 +289,7 @@ scan_vi_backslash(LI, Acc) ->
     Val when is_number(Val) ->
       scan_vi(LI, [Val | Acc]);
     {error, Ch} ->
-      erlang:throw({invalid_character, Ch})
+      lexer_error({invalid_character, Ch})
   end.
 
 %% seen ",", check for ",@"
@@ -326,7 +327,7 @@ scan_character(LI) ->
              "return" -> 13;
              "space" -> 32;
              "tab" -> 9;
-             _ -> erlang:throw({invalid_character_name, String})
+             _ -> lexer_error({invalid_character_name, String})
            end}
       end
   end.
@@ -342,7 +343,7 @@ scan_string(LI, Acc) ->
 scan_string(Ch, LI, Acc) ->
   case Ch of
     -1 ->
-      erlang:throw(premature_eof);
+      lexer_error(premature_eof);
     34 -> % double-quote, messes up erlang-mode :-(
       {token_string, lists:reverse(Acc)};
     $\\ ->
@@ -360,7 +361,7 @@ scan_string_backslash(LI, Acc) ->
         true ->
           scan_string_gap1(LI, Acc);
         false ->
-          erlang:throw({invalid_character, Ch})
+          lexer_error({invalid_character, Ch})
       end
   end.
 
@@ -377,7 +378,7 @@ scan_string_backslash(LI, Acc) ->
 scan_inline_escape(LI) -> % return Octet or {error, Ch}
   case es_lexinput:read_char(LI) of
     -1 ->
-      erlang:throw(premature_eof);
+      lexer_error(premature_eof);
     $a -> % alarm
       7;
     $b -> % backspace
@@ -414,7 +415,7 @@ scan_hex_scalar_value(LI, Delimiter) ->
   if Val < 16 ->
       scan_hex_scalar_value(LI, Delimiter, Val);
      true ->
-      erlang:throw({expected_hex_digit, Ch})
+      lexer_error({expected_hex_digit, Ch})
   end.
 
 scan_hex_scalar_value(LI, Delimiter, Num) ->
@@ -430,27 +431,27 @@ scan_hex_scalar_value(LI, Delimiter, Num) ->
             true ->
               [];
             false ->
-              erlang:throw({expected_delimiter, Ch})
+              lexer_error({expected_delimiter, Ch})
           end;
         ';' ->
           case Ch =:= $; of
             true ->
               es_lexinput:read_char(LI);
             false ->
-              erlang:throw({expected_semicolon, Ch})
+              lexer_error({expected_semicolon, Ch})
           end
       end,
       if Num < 256 -> % TODO: 8-bit characters assumption
           Num;
          true ->
-          erlang:throw({out_of_range_character_value, Num})
+          lexer_error({invalid_hex_character_value, Num})
       end
   end.
 
 scan_string_gap1(LI, Acc) -> % before <line ending>
   case es_lexinput:read_char(LI) of
     -1 ->
-      erlang:throw(premature_eof);
+      lexer_error(premature_eof);
     10 -> % linefeed
       scan_string_gap3(LI, Acc);
     13 -> % carriage return
@@ -460,14 +461,14 @@ scan_string_gap1(LI, Acc) -> % before <line ending>
         true ->
           scan_string_gap1(LI, Acc);
         false ->
-          erlang:throw({invalid_character, Ch})
+          lexer_error({invalid_character, Ch})
       end
   end.
 
 scan_string_gap2(LI, Acc) -> % after <carriage return>
   case es_lexinput:read_char(LI) of
     -1 ->
-      erlang:throw(premature_eof);
+      lexer_error(premature_eof);
     10 -> % linefeed
       scan_string_gap3(LI, Acc);
     Ch ->
@@ -480,7 +481,7 @@ scan_string_gap3(LI, Acc) -> % after <line ending>
 scan_string_gap3(Ch, LI, Acc) -> % after <line ending>
   case Ch of
     -1 ->
-      erlang:throw(premature_eof);
+      lexer_error(premature_eof);
     _ ->
       case es_ctype:char_is_whitespace(Ch) of
         true ->
@@ -944,7 +945,7 @@ skip_hash(LI) ->
 skip_block(LI, Level) ->
   case es_lexinput:read_char(LI) of
     -1 ->
-      erlang:throw(premature_eof);
+      lexer_error(premature_eof);
     $# ->
       skip_block_hash(LI, Level);
     $| ->
@@ -956,7 +957,7 @@ skip_block(LI, Level) ->
 skip_block_hash(LI, Level) ->
   case es_lexinput:read_char(LI) of
     -1 ->
-      erlang:throw(premature_eof);
+      lexer_error(premature_eof);
     $# ->
       skip_block_hash(LI, Level);
     $| ->
@@ -968,7 +969,7 @@ skip_block_hash(LI, Level) ->
 skip_block_bar(LI, Level) ->
   case es_lexinput:read_char(LI) of
     -1 ->
-      erlang:throw(premature_eof);
+      lexer_error(premature_eof);
     $| ->
       skip_block_bar(LI, Level);
     $# ->
@@ -979,4 +980,38 @@ skip_block_bar(LI, Level) ->
       end;
     _ ->
       skip_block(LI, Level)
+  end.
+
+%% Error Formatting ------------------------------------------------------------
+
+lexer_error(Reason) ->
+  error({?MODULE, Reason}).
+
+-spec format_error(term()) -> io_lib:chars().
+format_error(Reason) ->
+  case Reason of
+    {expected_delimiter, Ch} ->
+      io_lib:format("expected delimiter, got: ~c", [Ch]);
+    {expected_hex_digit, Ch} ->
+      io_lib:format("expected hex digit, got: ~c", [Ch]);
+    {expected_semicolon, Ch} ->
+      io_lib:format("expected ';', got: ~c", [Ch]);
+    {invalid_boolean, Str} ->
+      io_lib:format("invalid boolean: ~s", [Str]);
+    {invalid_character, Ch} ->
+      io_lib:format("invalid character: ~p", [Ch]);
+    {invalid_character_name, Str} ->
+      io_lib:format("invalid character name: ~s", [Str]);
+    {invalid_hex_character_value, Num} ->
+      io_lib:format("invalid hex character value: ~p", [Num]);
+    {invalid_identifier, Str} ->
+      io_lib:format("invalid identifier: ~s", [Str]);
+    {invalid_identifier, Str, Ch} ->
+      io_lib:format("invalid identifier: ~s followed by non-delimiter ~c", [Str, Ch]);
+    invalid_number ->
+      "invalid number";
+    premature_eof ->
+      "premature EOF";
+    _ ->
+      io_lib:format("~p", [Reason])
   end.
