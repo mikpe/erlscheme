@@ -27,6 +27,7 @@
 
 %% compiler API
 -export([ expand_toplevel/2
+        , format_error/1
         , initial/0
         ]).
 
@@ -393,7 +394,7 @@ finalize_quasiquote(Mode, Arg) ->
   case Mode of
     'quote' -> ['quote', Arg];
     'unquote' -> Arg;
-    'unquote-splicing' -> error({",@ in invalid context", Arg});
+    'unquote-splicing' -> macro_error({invalid_unquote_splicing, Arg});
     'list' -> [system('list') | Arg];
     'cons' ->
       case Arg of
@@ -465,3 +466,17 @@ do_bind_var(Var, SynEnv) ->
 
 nested(SynEnv) ->
   es_synenv:nested(SynEnv).
+
+%% Error Formatting ------------------------------------------------------------
+
+macro_error(Reason) ->
+  error({?MODULE, Reason}).
+
+-spec format_error(term()) -> io_lib:chars().
+format_error(Reason) ->
+  case Reason of
+    {invalid_unquote_splicing, Arg} ->
+      io_lib:format("invalid context for ',@': ~p", [Arg]);
+    _ ->
+      io_lib:format("~p", [Reason])
+  end.
