@@ -39,7 +39,8 @@
 
 -module(es_parse).
 
--export([ module/1
+-export([ format_error/1
+        , module/1
         , toplevel/1
         ]).
 
@@ -69,9 +70,9 @@ parse_module_decl(Sexprs) ->
     [['module', Name] | Rest] ->
       {Name, Rest};
     [X | _] ->
-      erlang:throw({invalid_module_decl, X});
+      parse_error({bad_module_decl, X});
     [] ->
-      erlang:throw(missing_module_decl)
+      parse_error(bad_module_decl_missing)
   end.
 
 parse_export_decl(Sexprs) ->
@@ -79,7 +80,7 @@ parse_export_decl(Sexprs) ->
     [['export' | Exports] | Rest] ->
       {parse_exports(Exports, []), Rest};
     _ ->
-      erlang:throw(missing_export_decl)
+      parse_error(bad_export_decl_missing)
   end.
 
 parse_exports(Exports, Acc) ->
@@ -91,7 +92,7 @@ parse_exports(Exports, Acc) ->
     [['/', F, A] | Rest] when is_atom(F), is_integer(A), A >= 0 ->
       parse_exports(Rest, [{F, A} | Acc]);
     _ ->
-      erlang:throw(invalid_export_decl)
+      parse_error({bad_export_decl, Exports})
   end.
 
 check_exports(Exports, ModEnv) ->
@@ -100,8 +101,8 @@ check_exports(Exports, ModEnv) ->
 check_export({F, A}, ModEnv) ->
   case es_env:lookup(ModEnv, F) of
     {value, A} -> ok;
-    {value, B} -> erlang:throw({export_wrong_arity, F, A, B});
-    none -> erlang:throw({export_undef, F, A})
+    {value, B} -> parse_error({bad_export_arity, F, A, B});
+    none -> parse_error({bad_export_undef, F, A})
   end.
 
 parse_pre_defuns(Sexprs) ->
@@ -113,10 +114,10 @@ parse_pre_defun(Sexpr) ->
       try length(Formals) of
         _Arity -> {Name, Formals, Body}
       catch error:badarg ->
-        erlang:throw({bad_formals, Formals})
+        parse_error({bad_formals, Formals})
       end;
     _ ->
-      erlang:throw({invalid_defun, Sexpr})
+      parse_error({bad_defun, Sexpr})
   end.
 
 build_modenv(PreDefuns) ->
@@ -125,7 +126,7 @@ build_modenv(PreDefuns) ->
 build_modenv({Name, Formals, _Body}, Env) ->
   Arity = length(Formals),
   case es_env:is_bound(Env, Name) of
-    true -> erlang:throw({already_bound, Name, Arity});
+    true -> parse_error({bad_fun_binding, Name, Arity});
     false -> es_env:enter(Env, Name, Arity)
   end.
 
@@ -151,7 +152,7 @@ parse(Sexpr, Env, IsToplevel) ->
         true ->
           {'ES:QUOTE', Sexpr};
         false ->
-          erlang:throw({invalid_expression, Sexpr})
+          parse_error({bad_expression, Sexpr})
       end
   end.
 
@@ -205,7 +206,7 @@ parse_and(Tl, Env) ->
     [] ->
       {'ES:QUOTE', true};
     _ ->
-      erlang:throw({bad_and, Tl})
+      parse_error({bad_and, Tl})
   end.
 
 parse_atom(Atom, Env) ->
@@ -257,7 +258,7 @@ parse_begin(Tl, Env, IsToplevel) ->
     [] when IsToplevel ->       % (begin) is valid at the top-level
       {'ES:QUOTE', es_datum:unspecified()};
     _ ->
-      erlang:throw({bad_begin, Tl})
+      parse_error({bad_begin, Tl})
   end.
 
 parse_call(Hd, Tl, Env) ->
@@ -286,7 +287,7 @@ parse_case(Tl, Env) ->
     [Expr | Clauses] ->
       {'ES:CASE', parse(Expr, Env), parse_clauses(Clauses, default_case_clause(), Env)};
     _ ->
-      erlang:throw({bad_case, Tl})
+      parse_error({bad_case, Tl})
   end.
 
 default_case_clause() ->
@@ -300,7 +301,7 @@ parse_cond(Tl, Env) ->
     [Clause | Clauses] ->
       parse_cond_clauses(Clause, Clauses, Env);
     _ ->
-      erlang:throw({bad_cond, Tl})
+      parse_error({bad_cond, Tl})
   end.
 
 parse_cond_clauses(['else' | Exprs], [], Env) ->
@@ -334,7 +335,7 @@ parse_define(Tl, Env, IsToplevel) ->
     {[Var, Expr], true} when is_atom(Var) ->
       {'ES:DEFINE', Var, parse(Expr, Env)};
     _ ->
-      erlang:throw({bad_define, Tl})
+      parse_error({bad_define, Tl})
   end.
 
 parse_if(Tl, Env) ->
@@ -344,7 +345,7 @@ parse_if(Tl, Env) ->
     [Pred, Then] ->
       {'ES:IF', parse(Pred, Env), parse(Then, Env), {'ES:QUOTE', es_datum:unspecified()}};
     _ ->
-      erlang:throw({bad_if, Tl})
+      parse_error({bad_if, Tl})
   end.
 
 parse_lambda(Tl, Env) ->
@@ -354,7 +355,7 @@ parse_lambda(Tl, Env) ->
     [Formals, Body] ->
       parse_plain_lambda(Formals, Body, Env);
     _ ->
-      erlang:throw({bad_lambda, Tl})
+      parse_error({bad_lambda, Tl})
   end.
 
 parse_plain_lambda(Formals, Body, Env) ->
@@ -375,12 +376,12 @@ parse_formals(Formals, ScopeEnv) ->
     [Formal | RestFormals] when is_atom(Formal) ->
       parse_formals(RestFormals, bind(Formal, ScopeEnv));
     _ ->
-      erlang:throw({bad_formals, Formals})
+      parse_error({bad_formals, Formals})
   end.
 
 bind(Var, ScopeEnv) when is_atom(Var) ->
   case es_env:is_bound(ScopeEnv, Var) of
-    true -> erlang:throw({already_bound, Var});
+    true -> parse_error({bad_var_binding, Var});
     false -> es_env:enter(ScopeEnv, Var, [])
   end.
 
@@ -390,7 +391,7 @@ parse_let(Tl, Env) ->
       {NewBindings, ScopeEnv} = parse_let_bindings(Bindings, Env),
       {'ES:LET', NewBindings, parse(Body, es_env:overlay(Env, ScopeEnv))};
     _ ->
-      erlang:throw({bad_let, tl})
+      parse_error({bad_let, tl})
   end.
 
 parse_let_bindings(Bindings, Env) ->
@@ -403,7 +404,7 @@ parse_let_binding(Binding, Env) ->
     [Var, Expr] when is_atom(Var) ->
       {Var, parse(Expr, Env)};
     _ ->
-      erlang:throw({bad_let_binding, Binding})
+      parse_error({bad_let_binding, Binding})
   end.
 
 bind_let({Var, _Expr}, ScopeEnv) ->
@@ -415,7 +416,7 @@ parse_letrec(Tl, Env) ->
       {NewBindings, NewEnv} = parse_letrec_bindings(Bindings, Env),
       {'ES:LETREC', NewBindings, parse(Body, NewEnv)};
     _ ->
-      erlang:throw({bad_letrec, Tl})
+      parse_error({bad_letrec, Tl})
   end.
 
 parse_letrec_bindings(Bindings, Env) ->
@@ -430,7 +431,7 @@ parse_letrec_binding(Binding, NewEnv) ->
       ScopeEnv = parse_formals(Formals, es_env:empty()),
       {Var, Formals, parse(Body, es_env:overlay(NewEnv, ScopeEnv))};
     _ ->
-      erlang:throw({bad_letrec_binding, Binding})
+      parse_error({bad_letrec_binding, Binding})
   end.
 
 bind_letrec(Binding, ScopeEnv) ->
@@ -438,7 +439,7 @@ bind_letrec(Binding, ScopeEnv) ->
     [Var, _Lambda] when is_atom(Var) ->
       bind(Var, ScopeEnv);
     _ ->
-      erlang:throw({bad_letrec_binding, Binding})
+      parse_error({bad_letrec_binding, Binding})
   end.
 
 parse_quote(Tl) ->
@@ -446,7 +447,7 @@ parse_quote(Tl) ->
     [Value] ->
       {'ES:QUOTE', Value};
     _ ->
-      erlang:throw({bad_quote, Tl})
+      parse_error({bad_quote, Tl})
   end.
 
 'parse_set!'(Tl, Env) ->
@@ -456,10 +457,10 @@ parse_quote(Tl) ->
         true ->
           {'ES:SET!', Var, parse(Expr, Env)};
         false ->
-          erlang:throw({'bad_set!', Tl})
+          parse_error({'bad_set!_disallowed', Var})
       end;
     _ ->
-      erlang:throw({'bad_set!', Tl})
+      parse_error({'bad_set!', Tl})
   end.
 
 %% Erlang-like try construct:
@@ -501,16 +502,16 @@ parse_try(Tl, Env) ->
           {EVar, Handler} = fixup_try_catch(MaybeCatch),
           {'ES:TRY', Expr, Var, Body, EVar, Handler, After};
         false ->
-          erlang:throw({bad_try, Tl})
+          parse_error({bad_try, Tl})
       end;
     [] ->
-      erlang:throw({bad_try, Tl})
+      parse_error({bad_try, Tl})
   end.
 
 parse_try_clause(Tag, [[Tag, Var, Expr] | Rest], Env) when is_atom(Var) ->
   {{Var, parse(Expr, es_env:enter(Env, Var, []))}, Rest};
 parse_try_clause(Tag, [[Tag | _] = Clause | _Rest], _Env) ->
-  erlang:throw({bad_try_clause, Clause});
+  parse_error({bad_try_clause, Clause});
 parse_try_clause(_Tag, Rest, _Env) ->
   {[], Rest}.
 
@@ -550,7 +551,7 @@ parse_clause(Clause, Env) ->
     [Pat, Body] ->
       parse_clause(Pat, false, Body, Env);
     _ ->
-      erlang:throw({bad_clause, Clause})
+      parse_error({bad_clause, Clause})
   end.
 
 parse_clause(Pat, MaybeGuard, Body, Env) ->
@@ -597,7 +598,7 @@ parse_pat(Sexpr, Env) ->
         true ->
           {{'ES:QUOTE', Sexpr}, Env};
         false ->
-          erlang:throw({invalid_pattern, Sexpr})
+          parse_error({bad_pattern, Sexpr})
       end
   end.
 
@@ -665,8 +666,9 @@ check_guard(Guard) ->
       lists:foreach(fun check_guard/1, Exprs)
   end.
 
+-dialyzer({no_return, invalid_guard/1}).
 invalid_guard(Expr) ->
-  erlang:throw({invalid_guard, Expr}).
+  parse_error({bad_guard, Expr}).
 
 %% Auxiliary helpers -----------------------------------------------------------
 
@@ -697,3 +699,75 @@ is_module(Env) ->
 
 newvar() ->
   erlang:unique_integer([positive]).
+
+%% Error Formatting ------------------------------------------------------------
+
+parse_error(Reason) ->
+  error({?MODULE, Reason}).
+
+-spec format_error(term()) -> io_lib:chars().
+format_error(Reason) ->
+  case Reason of
+    {bad_module_decl, X} ->
+      io_lib:format("invalid (module ..) declaration: ~p", [X]);
+    bad_module_decl_missing ->
+      "missing (module ..) declaration";
+    bad_export_decl_missing ->
+      "missing (export ..) declaration";
+    {bad_export_decl, X} ->
+      io_lib:format("invalid (export ..) declaration: ~p", [X]);
+    {bad_export_arity, F, A, B} ->
+      io_lib:format("bad export ~p: expected arity ~p, actual arity ~p", [F, A, B]);
+    {bad_export_undef, F, A} ->
+      io_lib:format("bad export of undefined ~p/~p", [F, A]);
+    {bad_formals, X} ->
+      io_lib:format("formal parameters is not a proper list: ~p", [X]);
+    {bad_defun, X} ->
+      io_lib:format("invalid toplevel function definition: ~p", [X]);
+    {bad_fun_binding, F, A} ->
+      io_lib:format("toplevel function ~p/~p: already defined", [F, A]);
+    {bad_var_binding, V} ->
+      io_lib:format("variable ~p already bound in local scope", [V]);
+    {bad_expression, X} ->
+      io_lib:format("invalid expression: ~p", [X]);
+    {bad_and, X} ->
+      io_lib:format("invalid (and ..) expression: ~p", [X]);
+    {bad_begin, X} ->
+      io_lib:format("invalid (begin ..) expression: ~p", [X]);
+    {bad_case, X} ->
+      io_lib:format("invalid (case ..) expression: ~p", [X]);
+    {bad_cond, X} ->
+      io_lib:format("invalid (cond ..) expression: ~p", [X]);
+    {bad_define, X} ->
+      io_lib:format("malformed or malplaced (define ..) expression: ~p", [X]);
+    {bad_if, X} ->
+      io_lib:format("invalid (if ..) expression: ~p", [X]);
+    {bad_lambda, X} ->
+      io_lib:format("invalid (lambda ..) expression: ~p", [X]);
+    {bad_let, X} ->
+      io_lib:format("invalid (let ..) expression: ~p", [X]);
+    {bad_let_binding, X} ->
+      io_lib:format("invalid binding in let: ~p", [X]);
+    {bad_letrec, X} ->
+      io_lib:format("invalid (letrec ..) expression: ~p", [X]);
+    {bad_letrec_binding, X} ->
+      io_lib:format("invalid binding in letrec: ~p", [X]);
+    {bad_quote, X} ->
+      io_lib:format("invalid (quote ..) expression: ~p", [X]);
+    {'bad_set!', X} ->
+      io_lib:format("invalid (set! ..) expression: ~p", [X]);
+    {'bad_set!_disallowed', V} ->
+      io_lib:format("not allowed: (set! ~p ..)", [V]);
+    {bad_try, X} ->
+      io_lib:format("invalid (try ..) expression: ~p", [X]);
+    {bad_try_clause, X} ->
+      io_lib:format("invalid (try ..) clause: ~p", [X]);
+    {bad_clause, X} ->
+      io_lib:format("invalid pattern-matching clause: ~p", [X]);
+    {bad_pattern, X} ->
+      io_lib:format("invalid pattern: ~p", [X]);
+    {bad_guard, X} ->
+      io_lib:format("invalid guard: ~p", [X]);
+    _ ->
+      io_lib:format("~p", [Reason])
+  end.
