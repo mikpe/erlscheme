@@ -439,10 +439,10 @@ scan_hex_scalar_value(LI, Delimiter, Num) ->
               erlang:throw({expected_semicolon, Ch})
           end
       end,
-      if Val < 256 -> % TODO: 8-bit characters assumption
-          Val;
+      if Num < 256 -> % TODO: 8-bit characters assumption
+          Num;
          true ->
-          erlang:throw({out_of_range_character_value, Val})
+          erlang:throw({out_of_range_character_value, Num})
       end
   end.
 
