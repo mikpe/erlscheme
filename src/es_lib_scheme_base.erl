@@ -86,12 +86,7 @@ env() ->
   case X of [_ | _] -> true; _ -> false end.
 
 'list?'(X) ->
-  listp(X). % is_list/1 is taken :-(
-
-%% Erlang has no circular lists, so we don't need the Hare-and-Tortoise algorithm.
-listp([_ | L]) -> listp(L);
-listp([]) -> true;
-listp(_) -> false.
+  try length(X) of _ -> true catch _:_ -> false end.
 
 'cons'(X, Y) -> [X | Y].
 
