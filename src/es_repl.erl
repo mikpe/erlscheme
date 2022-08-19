@@ -84,7 +84,9 @@ rep(N, LI) ->
     end
   catch
     Class:Reason:Stack ->
-      %% TODO: convert all legacy throws to errors and only format errors
-      io:format("caught ~p: ~s\n", [Class, es_error:format(Reason)]),
+      io:format("caught ~p: ~s\n", [Class, format_exn(Class, Reason)]),
       io:format("stack trace:\n~p\n", [Stack])
   end.
+
+format_exn(error, Reason) -> es_error:format(Reason);
+format_exn(_, Reason) -> io_lib:format("~p", [Reason]).
