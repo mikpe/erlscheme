@@ -202,6 +202,7 @@ scan_pi_sign(LI, Ch0, IsNegative) ->
           end;
         false ->
           if Ch1 =:= 46 -> % dot, messes up erlang-mode :-(
+              es_lexinput:read_char(LI),
               scan_pi_dot(LI, [Ch1, Ch0], IsNegative);
              true -> % <sign subsequent>
               es_lexinput:read_char(LI),
@@ -239,7 +240,7 @@ scan_pi_dot(LI, Acc, IsNegative) ->
           case Acc of % detect if this is "." (Ok) or "[+-]." (invalid)
             [46] ->
               token_dot;
-            [_, 46] ->
+            [46, _] ->
               erlang:throw(invalid_identifier)
           end;
         false ->
