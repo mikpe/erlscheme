@@ -17,7 +17,8 @@
 case os:cmd("git describe --dirty") of
   "fatal: " ++ _ ->
     CONFIG;
-  VSN ->
+  Output ->
+    VSN = string:trim(Output),
     Opts =
       case lists:keyfind(erl_opts, 1, CONFIG) of
         false -> [];

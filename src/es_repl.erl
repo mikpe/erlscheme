@@ -30,7 +30,7 @@ start() ->
 
 init() ->
   try
-    io:format("Welcome to ErlScheme version ~s", [?VSN]),
+    io:format("Welcome to ErlScheme version ~s\n", [?VSN]),
     io:format("~s\n", [erlang:system_info(system_version)]),
     es_gloenv:init(),
     es_lib_scheme_base_init(),
