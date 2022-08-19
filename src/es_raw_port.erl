@@ -34,6 +34,7 @@
 
 %% API
 -export([ close_input_port/1
+        , format_error/1
         , open_input_file/1
         , open_input_string/1
         , open_stdin/0
@@ -92,14 +93,16 @@ read_char(Pid) ->
 %% API Internals ---------------------------------------------------------------
 
 call(Pid, Cmd) ->
-  %% deliberately throw in case of error
-  {ok, Res} = gen_server:call(Pid, Cmd, 'infinity'),
-  Res.
+  case gen_server:call(Pid, Cmd, 'infinity') of
+    {ok, Res} -> Res;
+    {error, Reason} -> error(Reason)
+  end.
 
 open_input(Arg) ->
-  %% deliberately throw in case of error
-  {ok, Pid} = gen_server:start(?MODULE, Arg, []),
-  Pid.
+  case gen_server:start(?MODULE, Arg, []) of
+    {ok, Pid} -> Pid;
+    {error, {shutdown, Reason}} -> error(Reason)
+  end.
 
 %% gen_server callbacks --------------------------------------------------------
 
@@ -141,7 +144,7 @@ handle_call(Req, _From, State) ->
       {Result, NewState} = handle_read_char(State),
       {reply, Result, NewState};
     _ ->
-      {reply, {error, {bad_call, Req}}, State}
+      {reply, {error, {?MODULE, {bad_call, Req}}}, State}
   end.
 
 handle_cast(_Req, State) ->
@@ -210,14 +213,14 @@ do_open_input_file(Path) ->
           , read_char = fun input_file_read_char/1
           },
       {ok, #server_state{funs = Funs, state = {[], IoDev}}};
-    {error, _Reason} = Error ->
-       Error
+    {error, Reason} ->
+      {error, {?MODULE, {bad_file, Path, Reason}}}
   end.
 
 input_file_close({_, IoDev}) ->
   case file:close(IoDev) of
     ok -> {ok, true};
-    Error -> Error
+    {error, Reason} -> {error, {file, Reason}}
   end.
 
 input_file_peek_char(State = {Buf, IoDev}) ->
@@ -281,4 +284,17 @@ stdin_read_char(State) ->
       end;
     [Ch | Rest] ->
       {{ok, Ch}, Rest}
+  end.
+
+%% Error Formatting ------------------------------------------------------------
+
+-spec format_error(term()) -> io_lib:chars().
+format_error(Reason) ->
+  case Reason of
+    {bad_call, X} ->
+      io_lib:format("invalid call: ~p", [X]);
+    {bad_file, Path, Reason2} ->
+      io_lib:format("unable to open ~s: ~s", [Path, file:format_error(Reason2)]);
+    _ ->
+      io_lib:format("~p", [Reason])
   end.
