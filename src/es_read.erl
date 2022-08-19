@@ -23,7 +23,8 @@
 
 -module(es_read).
 
--export([ read/1
+-export([ format_error/1
+        , read/1
         ]).
 
 -type datum() :: term().
@@ -73,14 +74,14 @@ read_dispatch(LI, Token, EofOK) ->
     token_eof ->
       case EofOK of
         true -> es_datum:mk_eof_object();
-        false -> erlang:throw(premature_eof)
+        false -> read_error(premature_eof)
       end;
     token_rparen ->
-      erlang:throw(expected_datum_got_rparen);
+      read_error(expected_datum_got_rparen);
     token_rbracket ->
-      erlang:throw(expected_datum_got_rbracket);
+      read_error(expected_datum_got_rbracket);
     token_dot ->
-      erlang:throw(expected_datum_got_dot)
+      read_error(expected_datum_got_dot)
       %% token_hash_semi is filtered out by token/1
   end.
 
@@ -131,4 +132,24 @@ token(LI) ->
       token(LI);
     Token ->
       Token
+  end.
+
+%% Error Formatting ------------------------------------------------------------
+
+read_error(Reason) ->
+  error({?MODULE, Reason}).
+
+-spec format_error(term()) -> io_lib:chars().
+format_error(Reason) ->
+  case Reason of
+    expected_datum_got_got ->
+      "expected <datum>, got '.'";
+    expected_datum_got_rbrack ->
+      "expected <datum>, got ']'";
+    expected_datum_got_rparen ->
+      "expected <datum>, got ')'";
+    premature_eof ->
+      "premature EOF";
+    _ ->
+      io_lib:format("~p", [Reason])
   end.
