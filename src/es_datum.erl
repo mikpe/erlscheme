@@ -106,8 +106,7 @@
 -module(es_datum).
 
 %% API
--export([ binary_to_string/1
-        , format_error/1
+-export([ format_error/1
         , is_eof_object/1
         , is_string/1
         , is_symbol/1
@@ -151,8 +150,6 @@ mk_eof_object() -> fun ?MODULE:?the_eof_object/0.
 %% Strings
 
 is_string(X) -> is_binary(X).
-
-binary_to_string(B) -> B.
 
 %% Symbols
 

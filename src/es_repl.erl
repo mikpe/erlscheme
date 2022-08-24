@@ -60,7 +60,7 @@ es_load_init() ->
   ScmPrefix = filename:join(PrivDir, "scm"),
   true = filelib:is_dir(ScmPrefix),
   erlang:put('es_load_prefix', ScmPrefix),
-  es_load:load(es_datum:binary_to_string(<<"es-init.scm">>), es_synenv:gloenv()),
+  es_load:load(<<"es-init.scm">>, es_synenv:gloenv()),
   io:format(" done\n\n").
 
 repl(N, LI) ->
