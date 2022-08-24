@@ -70,7 +70,7 @@ read_dispatch(LI, Token, EofOK) ->
     {token_character, Ch} ->
       es_datum:integer_to_char(Ch);
     {token_string, String} ->
-      es_datum:binary_to_string(list_to_binary(String));
+      es_datum:binary_to_string(unicode:characters_to_binary(String));
     token_eof ->
       case EofOK of
         true -> es_datum:mk_eof_object();
