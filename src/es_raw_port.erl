@@ -70,7 +70,7 @@
 close_input_port(Pid) ->
   call(Pid, ?close).
 
--spec open_input_file(string()) -> es_port().
+-spec open_input_file(file:filename_all()) -> es_port().
 open_input_file(Path) ->
   open_input({?file, Path}).
 

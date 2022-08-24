@@ -69,11 +69,11 @@ column(LI) ->
 line(LI) ->
   call(LI, ?line).
 
--spec name(lexinput()) -> string().
+-spec name(lexinput()) -> file:filename_all().
 name(LI) ->
   call(LI, ?name).
 
--spec open(es_raw_port:es_port(), string()) -> lexinput().
+-spec open(es_raw_port:es_port(), file:filename_all()) -> lexinput().
 open(Port, Name) ->
   %% deliberately throw in case of error
   {ok, Pid} = gen_server:start(?MODULE, {Port, Name}, []),
