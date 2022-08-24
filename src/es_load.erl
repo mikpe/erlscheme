@@ -57,8 +57,7 @@ module(FileName) ->
 load_module(Name) ->
   code:is_loaded(Name) orelse begin {module, _} = code:load_file(Name), true end.
 
-load_file(String, SynEnv) ->
-  FileName = binary_to_list(es_datum:string_to_binary(String)),
+load_file(FileName, SynEnv) ->
   load(fun do_eval/2, SynEnv, FileName).
 
 do_eval(Datum, SynEnv) ->

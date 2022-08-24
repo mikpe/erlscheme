@@ -114,7 +114,7 @@ print_string(Binary, IsDisplay) ->
       io:format("~s", [Binary]);
     false ->
       io:format("\""),
-      escape_string(binary_to_list(Binary)),
+      escape_string(unicode:characters_to_list(Binary)),
       io:format("\"")
   end.
 

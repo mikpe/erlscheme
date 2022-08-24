@@ -34,7 +34,9 @@ file(Arg) ->
 
 -spec file(datum(), proplists:proplist()) -> ok.
 file(Arg, Opts) ->
-  FileName = binary_to_list(es_datum:string_to_binary(Arg)),
+  %% Since we want to replace the extension of the file name with ++,
+  %% we need it to be an Erlang string(), i.e. list().
+  FileName = unicode:characters_to_list(Arg),
   AST = es_load:module(FileName),
   BaseName = filename:basename(FileName, ".scm"),
   case proplists:get_bool(save_ast, Opts) of

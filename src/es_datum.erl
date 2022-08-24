@@ -72,7 +72,8 @@
 %%% Scheme requires strings and bytevectors to be distinct types,
 %%% but Erlang considers strings to be lists of characters while
 %%% bytevectors closely resemble Erlang binaries.  We represent both
-%%% as unadorned binaries, and accept that mutation is unavailable.
+%%% as unadorned binaries, strings in UTF-8 encoding, and accept that
+%%% mutation is unavailable.
 %%% R5RS did not have bytevectors, they were added in R6RS and R7RS.
 %%%
 %%% port                <an arity-0 closure from module es_port_wrapper>
@@ -114,7 +115,6 @@
         , list_to_vector/1
         , mk_eof_object/0
         , raise/1
-        , string_to_binary/1
         , unspecified/0
         ]).
 
@@ -153,8 +153,6 @@ mk_eof_object() -> fun ?MODULE:?the_eof_object/0.
 is_string(X) -> is_binary(X).
 
 binary_to_string(B) -> B.
-
-string_to_binary(S) -> S.
 
 %% Symbols
 
