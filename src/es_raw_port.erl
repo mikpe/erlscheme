@@ -254,37 +254,10 @@ input_file_read_char({Buf, IoDev}) ->
 do_open_stdin() ->
   Funs = #input_port_funs
     { close = fun noop_close/1
-    , peek_char = fun stdin_peek_char/1
-    , read_char = fun stdin_read_char/1
+    , peek_char = fun input_file_peek_char/1
+    , read_char = fun input_file_read_char/1
     },
-  {ok, #server_state{funs = Funs, state = []}}.
-
-stdin_peek_char(State) ->
-  case State of
-    [] ->
-      Line = io:get_line(standard_io, []),
-      case Line of
-        [Ch | _] ->
-          {{ok, Ch}, Line};
-        eof ->
-          {{ok, -1}, []}
-      end;
-    [Ch | _] ->
-      {{ok, Ch}, State}
-  end.
-
-stdin_read_char(State) ->
-  case State of
-    [] ->
-      case io:get_line(standard_io, []) of
-        [Ch | Rest] ->
-          {{ok, Ch}, Rest};
-        eof ->
-          {{ok, -1}, []}
-      end;
-    [Ch | Rest] ->
-      {{ok, Ch}, Rest}
-  end.
+  {ok, #server_state{funs = Funs, state = {[], standard_io}}}.
 
 %% Error Formatting ------------------------------------------------------------
 
