@@ -178,5 +178,5 @@ format_error(Reason) ->
     eof_object_was_called ->
       "eof-object was called";
     _ ->
-      io_lib:format("~p", [Reason])
+      io_lib:format("~tp", [Reason])
   end.

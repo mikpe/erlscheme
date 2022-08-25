@@ -62,10 +62,10 @@ print(Term, DepthLim, WidthLim, IsDisplay) ->
     [] -> io:format("()");
     true -> io:format("#t");
     false -> io:format("#f");
-    _ when is_number(Term) -> io:format("~p", [Term]); % includes characters
+    _ when is_number(Term) -> io:format("~tp", [Term]); % includes characters
     _ when is_atom(Term) -> print_symbol(Term, IsDisplay);
     _ when is_function(Term) -> % includes eof-object and ports
-      io:format("#<subr ~s>", [erlang:fun_to_list(Term)]);
+      io:format("#<subr ~ts>", [erlang:fun_to_list(Term)]);
     _ when is_binary(Term) -> print_string(Term, IsDisplay);
     _ when is_tuple(Term) -> print_tuple(Term, DepthLim, WidthLim, IsDisplay)
   end.
@@ -111,7 +111,7 @@ print_vector(Tuple, I, DepthLim, WidthLim, IsDisplay) ->
 print_string(Binary, IsDisplay) ->
   case IsDisplay of
     true ->
-      io:format("~s", [Binary]);
+      io:format("~ts", [Binary]);
     false ->
       io:format("\""),
       escape_string(unicode:characters_to_list(Binary)),
@@ -138,19 +138,19 @@ escape_string([Ch | Rest]) ->
     _ when Ch < 32; Ch >= 127 ->
       io:format("\\x~.16B;", [Ch]);
     _ ->
-      io:format("~c", [Ch])
+      io:format("~tc", [Ch])
   end,
   escape_string(Rest).
 
 print_symbol(Symbol, IsDisplay) ->
   case IsDisplay of
     true ->
-      io:format("~p", [Symbol]);
+      io:format("~tp", [Symbol]);
     false ->
       Pname = atom_to_list(Symbol),
       case pname_needs_escape(Pname) of
         false ->
-          io:format("~p", [Symbol]);
+          io:format("~tp", [Symbol]);
         true ->
           escape_pname(Pname)
       end
@@ -173,7 +173,7 @@ pname_rest_needs_escape([Ch | Rest]) ->
 escape_pname([]) -> io:format("||");
 escape_pname([Ch | Rest]) ->
   case es_ctype:char_is_initial(Ch) of
-    true -> io:format("|~c", [Ch]);
+    true -> io:format("|~tc", [Ch]);
     false -> io:format("|\\x~.16B;", [Ch])
   end,
   escape_pname_rest(Rest).
@@ -181,7 +181,7 @@ escape_pname([Ch | Rest]) ->
 escape_pname_rest([]) -> io:format("|");
 escape_pname_rest([Ch | Rest]) ->
   case es_ctype:char_is_subsequent(Ch) of
-    true -> io:format("~c", [Ch]);
+    true -> io:format("~tc", [Ch]);
     false -> io:format("\\x~.16B;", [Ch])
   end,
   escape_pname_rest(Rest).

@@ -709,65 +709,65 @@ parse_error(Reason) ->
 format_error(Reason) ->
   case Reason of
     {bad_module_decl, X} ->
-      io_lib:format("invalid (module ..) declaration: ~p", [X]);
+      io_lib:format("invalid (module ..) declaration: ~tp", [X]);
     bad_module_decl_missing ->
       "missing (module ..) declaration";
     bad_export_decl_missing ->
       "missing (export ..) declaration";
     {bad_export_decl, X} ->
-      io_lib:format("invalid (export ..) declaration: ~p", [X]);
+      io_lib:format("invalid (export ..) declaration: ~tp", [X]);
     {bad_export_arity, F, A, B} ->
-      io_lib:format("bad export ~p: expected arity ~p, actual arity ~p", [F, A, B]);
+      io_lib:format("bad export ~tp: expected arity ~tp, actual arity ~tp", [F, A, B]);
     {bad_export_undef, F, A} ->
-      io_lib:format("bad export of undefined ~p/~p", [F, A]);
+      io_lib:format("bad export of undefined ~tp/~tp", [F, A]);
     {bad_formals, X} ->
-      io_lib:format("formal parameters is not a proper list: ~p", [X]);
+      io_lib:format("formal parameters is not a proper list: ~tp", [X]);
     {bad_defun, X} ->
-      io_lib:format("invalid toplevel function definition: ~p", [X]);
+      io_lib:format("invalid toplevel function definition: ~tp", [X]);
     {bad_fun_binding, F, A} ->
-      io_lib:format("toplevel function ~p/~p: already defined", [F, A]);
+      io_lib:format("toplevel function ~tp/~tp: already defined", [F, A]);
     {bad_var_binding, V} ->
-      io_lib:format("variable ~p already bound in local scope", [V]);
+      io_lib:format("variable ~tp already bound in local scope", [V]);
     {bad_expression, X} ->
-      io_lib:format("invalid expression: ~p", [X]);
+      io_lib:format("invalid expression: ~tp", [X]);
     {bad_and, X} ->
-      io_lib:format("invalid (and ..) expression: ~p", [X]);
+      io_lib:format("invalid (and ..) expression: ~tp", [X]);
     {bad_begin, X} ->
-      io_lib:format("invalid (begin ..) expression: ~p", [X]);
+      io_lib:format("invalid (begin ..) expression: ~tp", [X]);
     {bad_case, X} ->
-      io_lib:format("invalid (case ..) expression: ~p", [X]);
+      io_lib:format("invalid (case ..) expression: ~tp", [X]);
     {bad_cond, X} ->
-      io_lib:format("invalid (cond ..) expression: ~p", [X]);
+      io_lib:format("invalid (cond ..) expression: ~tp", [X]);
     {bad_define, X} ->
-      io_lib:format("malformed or malplaced (define ..) expression: ~p", [X]);
+      io_lib:format("malformed or malplaced (define ..) expression: ~tp", [X]);
     {bad_if, X} ->
-      io_lib:format("invalid (if ..) expression: ~p", [X]);
+      io_lib:format("invalid (if ..) expression: ~tp", [X]);
     {bad_lambda, X} ->
-      io_lib:format("invalid (lambda ..) expression: ~p", [X]);
+      io_lib:format("invalid (lambda ..) expression: ~tp", [X]);
     {bad_let, X} ->
-      io_lib:format("invalid (let ..) expression: ~p", [X]);
+      io_lib:format("invalid (let ..) expression: ~tp", [X]);
     {bad_let_binding, X} ->
-      io_lib:format("invalid binding in let: ~p", [X]);
+      io_lib:format("invalid binding in let: ~tp", [X]);
     {bad_letrec, X} ->
-      io_lib:format("invalid (letrec ..) expression: ~p", [X]);
+      io_lib:format("invalid (letrec ..) expression: ~tp", [X]);
     {bad_letrec_binding, X} ->
-      io_lib:format("invalid binding in letrec: ~p", [X]);
+      io_lib:format("invalid binding in letrec: ~tp", [X]);
     {bad_quote, X} ->
-      io_lib:format("invalid (quote ..) expression: ~p", [X]);
+      io_lib:format("invalid (quote ..) expression: ~tp", [X]);
     {'bad_set!', X} ->
-      io_lib:format("invalid (set! ..) expression: ~p", [X]);
+      io_lib:format("invalid (set! ..) expression: ~tp", [X]);
     {'bad_set!_disallowed', V} ->
-      io_lib:format("not allowed: (set! ~p ..)", [V]);
+      io_lib:format("not allowed: (set! ~tp ..)", [V]);
     {bad_try, X} ->
-      io_lib:format("invalid (try ..) expression: ~p", [X]);
+      io_lib:format("invalid (try ..) expression: ~tp", [X]);
     {bad_try_clause, X} ->
-      io_lib:format("invalid (try ..) clause: ~p", [X]);
+      io_lib:format("invalid (try ..) clause: ~tp", [X]);
     {bad_clause, X} ->
-      io_lib:format("invalid pattern-matching clause: ~p", [X]);
+      io_lib:format("invalid pattern-matching clause: ~tp", [X]);
     {bad_pattern, X} ->
-      io_lib:format("invalid pattern: ~p", [X]);
+      io_lib:format("invalid pattern: ~tp", [X]);
     {bad_guard, X} ->
-      io_lib:format("invalid guard: ~p", [X]);
+      io_lib:format("invalid guard: ~tp", [X]);
     _ ->
-      io_lib:format("~p", [Reason])
+      io_lib:format("~tp", [Reason])
   end.

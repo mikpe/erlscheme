@@ -265,9 +265,9 @@ do_open_stdin() ->
 format_error(Reason) ->
   case Reason of
     {bad_call, X} ->
-      io_lib:format("invalid call: ~p", [X]);
+      io_lib:format("invalid call: ~tp", [X]);
     {bad_file, Path, Reason2} ->
-      io_lib:format("unable to open ~s: ~s", [Path, file:format_error(Reason2)]);
+      io_lib:format("unable to open ~ts: ~ts", [Path, file:format_error(Reason2)]);
     _ ->
-      io_lib:format("~p", [Reason])
+      io_lib:format("~tp", [Reason])
   end.

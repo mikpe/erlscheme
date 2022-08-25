@@ -47,11 +47,11 @@
 
 -spec eval(sexpr(), es_macros:synenv()) -> {datum(), es_macros:synenv()}.
 eval(Sexpr, SynEnv) ->
-  %% io:format("before expand:\n~p\n", [Sexpr]),
+  %% io:format("before expand:\n~tp\n", [Sexpr]),
   {Expanded, NewSynEnv} = es_macros:expand_toplevel(Sexpr, SynEnv),
-  %% io:format("after expand:\n~p\n", [Expanded]),
+  %% io:format("after expand:\n~tp\n", [Expanded]),
   AST = es_parse:toplevel(Expanded),
-  %% io:format("after parse:\n~p\n", [AST]),
+  %% io:format("after parse:\n~tp\n", [AST]),
   Datum = interpret(AST, es_env:empty()),
   {Datum, NewSynEnv}.
 
@@ -348,9 +348,9 @@ eval_error(Reason) ->
 format_error(Reason) ->
   case Reason of
     {unbound_variable, Var} ->
-      io_lib:format("unbound variable: ~p", [Var]);
+      io_lib:format("unbound variable: ~tp", [Var]);
     {argument_limit, Arity} ->
-      io_lib:format("arity limit exceeded: ~p", [Arity]);
+      io_lib:format("arity limit exceeded: ~tp", [Arity]);
     _ ->
-      io_lib:format("~p", [Reason])
+      io_lib:format("~tp", [Reason])
   end.

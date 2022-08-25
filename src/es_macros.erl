@@ -476,7 +476,7 @@ macro_error(Reason) ->
 format_error(Reason) ->
   case Reason of
     {invalid_unquote_splicing, Arg} ->
-      io_lib:format("invalid context for ',@': ~p", [Arg]);
+      io_lib:format("invalid context for ',@': ~tp", [Arg]);
     _ ->
-      io_lib:format("~p", [Reason])
+      io_lib:format("~tp", [Reason])
   end.

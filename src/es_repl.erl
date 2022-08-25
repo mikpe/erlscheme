@@ -30,8 +30,8 @@ start() ->
 
 init() ->
   try
-    io:format("Welcome to ErlScheme version ~s\n", [?VSN]),
-    io:format("~s\n", [erlang:system_info(system_version)]),
+    io:format("Welcome to ErlScheme version ~ts\n", [?VSN]),
+    io:format("~ts\n", [erlang:system_info(system_version)]),
     es_gloenv:init(),
     es_lib_scheme_base_init(),
     es_macros_init(),
@@ -40,8 +40,8 @@ init() ->
     es_lexinput:open(P, "<stdin>")
   catch
     Class:Reason:Stack ->
-      io:format("fatal ~p during startup: ~s\n", [Class, es_error:format(Reason)]),
-      io:format("stack trace:\n~p\n", [Stack]),
+      io:format("fatal ~tp during startup: ~ts\n", [Class, es_error:format(Reason)]),
+      io:format("stack trace:\n~tp\n", [Stack]),
       false
   end.
 
@@ -71,22 +71,22 @@ repl(N, LI) ->
 
 rep(N, LI) ->
   try
-    io:format("ErlScheme_~p> ", [N]),
+    io:format("ErlScheme_~tp> ", [N]),
     Sexpr = es_read:read(LI),
     case es_datum:is_eof_object(Sexpr) of
       false ->
         erlang:put('es_load_prefix', "."),
         {Term, _SynEnv} = es_eval:eval(Sexpr, es_synenv:gloenv()),
         es_print:display(Term),
-        io:format("~n");
+        io:format("\n");
       true ->
         false
     end
   catch
     Class:Reason:Stack ->
-      io:format("caught ~p: ~s\n", [Class, format_exn(Class, Reason)]),
-      io:format("stack trace:\n~p\n", [Stack])
+      io:format("caught ~tp: ~ts\n", [Class, format_exn(Class, Reason)]),
+      io:format("stack trace:\n~tp\n", [Stack])
   end.
 
 format_exn(error, Reason) -> es_error:format(Reason);
-format_exn(_, Reason) -> io_lib:format("~p", [Reason]).
+format_exn(_, Reason) -> io_lib:format("~tp", [Reason]).

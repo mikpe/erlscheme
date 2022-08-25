@@ -41,7 +41,7 @@ file(Arg, Opts) ->
   BaseName = filename:basename(FileName, ".scm"),
   case proplists:get_bool(save_ast, Opts) of
     true ->
-      ok = file:write_file(BaseName ++ ".ast", io_lib:format("~p\n", [AST]));
+      ok = file:write_file(BaseName ++ ".ast", io_lib:format("~tp\n", [AST]));
     false ->
       ok
   end,
@@ -50,7 +50,7 @@ file(Arg, Opts) ->
   case proplists:get_bool(save_ast, Opts) of
     true ->
       ok = file:write_file(BaseName ++ ".core",
-                           io_lib:format("~s\n", [core_pp:format(CerlModule)]));
+                           io_lib:format("~ts\n", [core_pp:format(CerlModule)]));
     false ->
       ok
   end,

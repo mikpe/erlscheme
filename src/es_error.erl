@@ -41,4 +41,4 @@ format({Module, Reason} = Error) when is_atom(Module) ->
 format(Error) -> default_format(Error).
 
 default_format(Error) ->
-  io_lib:format("~p", [Error]).
+  io_lib:format("~tp", [Error]).

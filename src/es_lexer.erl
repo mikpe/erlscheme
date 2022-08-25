@@ -986,25 +986,25 @@ lexer_error(Reason) ->
 format_error(Reason) ->
   case Reason of
     {expected_delimiter, Ch} ->
-      io_lib:format("expected delimiter, got: ~c", [Ch]);
+      io_lib:format("expected delimiter, got: ~tc", [Ch]);
     {expected_hex_digit, Ch} ->
-      io_lib:format("expected hex digit, got: ~c", [Ch]);
+      io_lib:format("expected hex digit, got: ~tc", [Ch]);
     {expected_semicolon, Ch} ->
-      io_lib:format("expected ';', got: ~c", [Ch]);
+      io_lib:format("expected ';', got: ~tc", [Ch]);
     {invalid_boolean, Str} ->
-      io_lib:format("invalid boolean: ~s", [Str]);
+      io_lib:format("invalid boolean: ~ts", [Str]);
     {invalid_character, Ch} ->
-      io_lib:format("invalid character: ~p", [Ch]);
+      io_lib:format("invalid character: ~tc", [Ch]);
     {invalid_character_name, Str} ->
-      io_lib:format("invalid character name: ~s", [Str]);
+      io_lib:format("invalid character name: ~ts", [Str]);
     {invalid_identifier, Str} ->
-      io_lib:format("invalid identifier: ~s", [Str]);
+      io_lib:format("invalid identifier: ~ts", [Str]);
     {invalid_identifier, Str, Ch} ->
-      io_lib:format("invalid identifier: ~s followed by non-delimiter ~c", [Str, Ch]);
+      io_lib:format("invalid identifier: ~ts followed by non-delimiter ~tc", [Str, Ch]);
     invalid_number ->
       "invalid number";
     premature_eof ->
       "premature EOF";
     _ ->
-      io_lib:format("~p", [Reason])
+      io_lib:format("~tp", [Reason])
   end.

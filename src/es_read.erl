@@ -151,5 +151,5 @@ format_error(Reason) ->
     premature_eof ->
       "premature EOF";
     _ ->
-      io_lib:format("~p", [Reason])
+      io_lib:format("~tp", [Reason])
   end.
