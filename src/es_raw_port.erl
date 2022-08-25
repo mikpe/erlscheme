@@ -203,8 +203,8 @@ input_string_read_char([] = _State) ->
 
 do_open_input_file(Path) ->
   %% We MUST call file:open/2 from within the gen_server.
-  %% A positive consequence is that we can open the file in 'raw' mode.
-  case file:open(Path, [read, raw, read_ahead]) of
+  %% Note: This only works for text files, e.g. source code.
+  case file:open(Path, [read, {encoding, utf8}, read_ahead]) of
     {ok, IoDev} ->
       Funs =
         #input_port_funs
@@ -226,8 +226,8 @@ input_file_close({_, IoDev}) ->
 input_file_peek_char(State = {Buf, IoDev}) ->
   case Buf of
     [] ->
-      case file:read(IoDev, 1) of
-        {ok, Line = [Ch | _]} ->
+      case io:get_line(IoDev, []) of
+        Line = [Ch | _] ->
           {{ok, Ch}, {Line, IoDev}};
         eof ->
           {{ok, -1}, {[], IoDev}}
@@ -239,8 +239,8 @@ input_file_peek_char(State = {Buf, IoDev}) ->
 input_file_read_char({Buf, IoDev}) ->
   case Buf of
     [] ->
-      case file:read(IoDev, 1) of
-        {ok, [Ch | Rest]} ->
+      case io:get_line(IoDev, []) of
+        [Ch | Rest] ->
           {{ok, Ch}, {Rest, IoDev}};
         eof ->
          {{ok, -1}, {[], IoDev}}
