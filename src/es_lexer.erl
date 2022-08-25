@@ -21,7 +21,6 @@
 %%% Limitations:
 %%% - #!fold-case and #!no-fold-case are not yet implemented
 %%% - "#u8(" for the <bytevector> syntax is not yet implemented
-%%% - only supports the ASCII character set, embedded in 8-bit characters
 %%% - the polar, rectangular, and rational number syntaxes are not supported
 %%%
 %%% Extensions:
@@ -286,8 +285,8 @@ scan_vi(LI, Acc) ->
 
 scan_vi_backslash(LI, Acc) ->
   case scan_inline_escape(LI) of
-    Val when is_number(Val) ->
-      scan_vi(LI, [Val | Acc]);
+    Ch when is_integer(Ch) ->
+      scan_vi(LI, [Ch | Acc]);
     {error, Ch} ->
       lexer_error({invalid_character, Ch})
   end.
@@ -354,8 +353,8 @@ scan_string(Ch, LI, Acc) ->
 
 scan_string_backslash(LI, Acc) ->
   case scan_inline_escape(LI) of
-    Val when is_number(Val) ->
-      scan_string(LI, [Val | Acc]);
+    Ch when is_integer(Ch) ->
+      scan_string(LI, [Ch | Acc]);
     {error, Ch} ->
       case es_ctype:char_is_whitespace(Ch) of
         true ->
@@ -375,7 +374,7 @@ scan_string_backslash(LI, Acc) ->
 %% handled by tagging and returning any unrecognized character, letting
 %% the context determine whether that character is valid or not.
 
-scan_inline_escape(LI) -> % return Octet or {error, Ch}
+scan_inline_escape(LI) -> % return Char or {error, Ch}
   case es_lexinput:read_char(LI) of
     -1 ->
       lexer_error(premature_eof);
@@ -441,11 +440,7 @@ scan_hex_scalar_value(LI, Delimiter, Num) ->
               lexer_error({expected_semicolon, Ch})
           end
       end,
-      if Num < 256 -> % TODO: 8-bit characters assumption
-          Num;
-         true ->
-          lexer_error({invalid_hex_character_value, Num})
-      end
+      Num
   end.
 
 scan_string_gap1(LI, Acc) -> % before <line ending>
@@ -1002,8 +997,6 @@ format_error(Reason) ->
       io_lib:format("invalid character: ~p", [Ch]);
     {invalid_character_name, Str} ->
       io_lib:format("invalid character name: ~s", [Str]);
-    {invalid_hex_character_value, Num} ->
-      io_lib:format("invalid hex character value: ~p", [Num]);
     {invalid_identifier, Str} ->
       io_lib:format("invalid identifier: ~s", [Str]);
     {invalid_identifier, Str, Ch} ->
