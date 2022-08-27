@@ -33,7 +33,7 @@ BIN_DIR = bin
 
 all:	compile $(BIN_DIR)/erlscheme
 
-compile: $(REBAR3)
+compile: $(REBAR3) src/es_uc_ctype.erl
 	$(REBAR3) do compile, xref, dialyzer, eunit
 
 $(BIN_DIR)/erlscheme:
@@ -56,6 +56,12 @@ install:	compile $(BIN_DIR)/erlscheme
 
 clean distclean realclean:
 	rm -rf $(BIN_DIR) _build
+
+# generate src/es_uc_ctype.erl from UnicodeData.txt:
+# make UCD=/path/to/otp_src/lib/stdlib/uc_spec/UnicodeData.txt src/es_uc_ctype.erl
+src/es_uc_ctype.erl:
+	@if [ -z "$(UCD)" ]; then echo UCD not set; exit 1; fi
+	make/gen_es_uc_ctype.escript "$(UCD)" src/es_uc_ctype.erl
 
 ./rebar3:
 	mkdir -p _build; \
