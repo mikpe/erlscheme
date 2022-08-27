@@ -18,10 +18,6 @@
 %%%
 %%% Character classification for ErlScheme.
 %%%
-%%% This currently assumes that the range of characters is [0..255],
-%%% that we represent EOF as -1, and that 7-bit ASCII is contained
-%%% in the lower 7 bits of character codes.
-%%%
 %%% Extensions:
 %%% - : and / are delimiters and thus excluded from initial and subsequent
 %%% - [ and ] are delimiters
@@ -38,27 +34,38 @@
 
 %% API -------------------------------------------------------------------------
 
--spec char_is_delimiter(-1 | byte()) -> boolean().
+-spec char_is_delimiter(-1 | char()) -> boolean().
 char_is_delimiter(Ch) ->
-  char_is_type(Ch, 16#02).
+  if Ch < 128 -> char_is_type(Ch, 16#02);
+     true -> false
+  end.
 
--spec char_is_initial(-1 | byte()) -> boolean().
+-spec char_is_initial(-1 | char()) -> boolean().
 char_is_initial(Ch) ->
-  char_is_type(Ch, 16#04).
+  if Ch < 128 -> char_is_type(Ch, 16#04);
+     true -> es_uc_ctype:is_initial(Ch)
+  end.
 
--spec char_is_numeric(-1 | byte()) -> boolean().
+-spec char_is_numeric(-1 | char()) -> boolean().
 char_is_numeric(Ch) ->
-  char_is_type(Ch, 16#08).
+  if Ch < 128 -> char_is_type(Ch, 16#08);
+     true -> false
+  end.
 
--spec char_is_subsequent(-1 | byte()) -> boolean().
+-spec char_is_subsequent(-1 | char()) -> boolean().
 char_is_subsequent(Ch) ->
-  char_is_type(Ch, 16#10).
+  if Ch < 128 -> char_is_type(Ch, 16#10);
+     true -> es_uc_ctype:is_subsequent(Ch)
+  end.
 
--spec char_is_whitespace(-1 | byte()) -> boolean().
+-spec char_is_whitespace(-1 | char()) -> boolean().
 char_is_whitespace(Ch) ->
-  char_is_type(Ch, 16#01).
+  if Ch < 128 -> char_is_type(Ch, 16#01);
+     true -> es_uc_ctype:is_whitespace(Ch)
+  end.
 
--spec char_value(-1 | byte()) -> 0..15 | 255.
+-spec char_value(-1 | char()) -> 0..15 | 255.
+char_value(Ch) when Ch > 127 -> 255;
 char_value(Ch) ->
   ChValueTab = % indexed by [-1, 255] + 1
     <<
