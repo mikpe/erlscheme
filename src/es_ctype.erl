@@ -15,7 +15,9 @@
 %%%   limitations under the License.
 %%%
 %%% es_ctype.erl
-%%% Character classification and manipulation for ErlScheme.
+%%%
+%%% Character classification for ErlScheme.
+%%%
 %%% This currently assumes that the range of characters is [0..255],
 %%% that we represent EOF as -1, and that 7-bit ASCII is contained
 %%% in the lower 7 bits of character codes.
@@ -26,13 +28,69 @@
 
 -module(es_ctype).
 
--export([ char_is_delimiter/1   % [-1, 255] -> true | false
-        , char_is_initial/1     % [-1, 255] -> true | false
-        , char_is_numeric/1     % [-1, 255] -> true | false
-        , char_is_subsequent/1  % [-1, 255] -> true | false
-        , char_is_whitespace/1  % [-1, 255] -> true | false
-        , char_value/1          % [-1, 255] -> [0-15, 255]
+-export([ char_is_delimiter/1
+        , char_is_initial/1
+        , char_is_numeric/1
+        , char_is_subsequent/1
+        , char_is_whitespace/1
+        , char_value/1
         ]).
+
+%% API -------------------------------------------------------------------------
+
+-spec char_is_delimiter(-1 | byte()) -> boolean().
+char_is_delimiter(Ch) ->
+  char_is_type(Ch, 16#02).
+
+-spec char_is_initial(-1 | byte()) -> boolean().
+char_is_initial(Ch) ->
+  char_is_type(Ch, 16#04).
+
+-spec char_is_numeric(-1 | byte()) -> boolean().
+char_is_numeric(Ch) ->
+  char_is_type(Ch, 16#08).
+
+-spec char_is_subsequent(-1 | byte()) -> boolean().
+char_is_subsequent(Ch) ->
+  char_is_type(Ch, 16#10).
+
+-spec char_is_whitespace(-1 | byte()) -> boolean().
+char_is_whitespace(Ch) ->
+  char_is_type(Ch, 16#01).
+
+-spec char_value(-1 | byte()) -> 0..15 | 255.
+char_value(Ch) ->
+  ChValueTab = % indexed by [-1, 255] + 1
+    <<
+     % EOF                                                             (-1)
+     "\xFF"
+     % NUL SOH STX ETX EOT ENQ ACK BEL  BS  HT  LF  VT  FF  CR  SO  SI (0-15)
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     % DLE DC1 DC2 DC3 DC4 NAK SYN ETB CAN  EM SUB ESC  FS  GS  RS  UA (16-31)
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     % SPC   !   "   #   $   %   &   '   (   )   *   +   ,   -   .   / (32-47)
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     %   0   1   2   3   4   5   6   7   8   9   :   ;   <   =   >   ? (48-63)
+     "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\xFF\xFF\xFF\xFF\xFF\xFF"
+     %   @   A   B   C   D   E   F   G   H   I   J   K   L   M   N   O (64-79)
+     "\xFF\x0A\x0B\x0C\x0D\x0E\x0F\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     %   P   Q   R   S   T   U   V   W   X   Y   Z   [   \   ]   ^   _ (80-95)
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     %   `   a   b   c   d   e   f   g   h   i   j   k   l   m   n   o (96-111)
+     "\xFF\x0A\x0B\x0C\x0D\x0E\x0F\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     %   p   q   r   s   t   u   v   w   x   y   z   {   |   }   ~ DEL (112-127)
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF">>,
+  binary:at(ChValueTab, Ch + 1).
+
+%% Internals -------------------------------------------------------------------
 
 %% Character classification flag bits:
 %%
@@ -72,40 +130,3 @@ char_is_type(Ch, Mask) ->
      "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
      "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00">>,
   (binary:at(ChTypeTab, Ch + 1) band Mask) =/= 0.
-
-char_is_whitespace(Ch) -> char_is_type(Ch, 16#01).
-char_is_delimiter(Ch) -> char_is_type(Ch, 16#02).
-char_is_initial(Ch) -> char_is_type(Ch, 16#04).
-char_is_numeric(Ch) -> char_is_type(Ch, 16#08).
-char_is_subsequent(Ch) -> char_is_type(Ch, 16#10).
-
-char_value(Ch) ->
-  ChValueTab = % indexed by [-1, 255] + 1
-    <<
-     % EOF                                                             (-1)
-     "\xFF"
-     % NUL SOH STX ETX EOT ENQ ACK BEL  BS  HT  LF  VT  FF  CR  SO  SI (0-15)
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     % DLE DC1 DC2 DC3 DC4 NAK SYN ETB CAN  EM SUB ESC  FS  GS  RS  UA (16-31)
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     % SPC   !   "   #   $   %   &   '   (   )   *   +   ,   -   .   / (32-47)
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     %   0   1   2   3   4   5   6   7   8   9   :   ;   <   =   >   ? (48-63)
-     "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\xFF\xFF\xFF\xFF\xFF\xFF"
-     %   @   A   B   C   D   E   F   G   H   I   J   K   L   M   N   O (64-79)
-     "\xFF\x0A\x0B\x0C\x0D\x0E\x0F\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     %   P   Q   R   S   T   U   V   W   X   Y   Z   [   \   ]   ^   _ (80-95)
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     %   `   a   b   c   d   e   f   g   h   i   j   k   l   m   n   o (96-111)
-     "\xFF\x0A\x0B\x0C\x0D\x0E\x0F\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     %   p   q   r   s   t   u   v   w   x   y   z   {   |   }   ~ DEL (112-127)
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
-     "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF">>,
-  binary:at(ChValueTab, Ch + 1).
