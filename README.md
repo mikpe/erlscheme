@@ -90,7 +90,6 @@ ErlScheme is far from finished, so here is an incomplete list of known
 omissions and planned extensions:
 
 Omissions:
-- No Unicode, characters are 8-bit, and identifiers only allow ASCII.
 - Most of the Scheme standard bindings are not yet implemented.
 - The R6RS/R7RS library system is not implemented, and may never be.
 - No documentation.
