@@ -25,11 +25,9 @@
         ]).
 
 %% Base Library functions implemented in this module
--export([ car/1
-        , caar/1
+-export([ caar/1
         , cadr/1
         , caddr/1
-        , cdr/1
         , cddr/1
         , cdddr/1
         , cons/2
@@ -57,8 +55,8 @@ env() ->
    , 'cons' => fun ?MODULE:cons/2
    , 'append' => fun erlang:'++'/2
    , 'reverse' => fun lists:reverse/1
-   , 'car' => fun ?MODULE:car/1
-   , 'cdr' => fun ?MODULE:cdr/1
+   , 'car' => fun erlang:hd/1
+   , 'cdr' => fun erlang:tl/1
    , 'caar' => fun ?MODULE:caar/1
    , 'cadr' => fun ?MODULE:cadr/1
    , 'cddr' => fun ?MODULE:cddr/1
@@ -89,12 +87,6 @@ env() ->
   try length(X) of _ -> true catch _:_ -> false end.
 
 'cons'(X, Y) -> [X | Y].
-
-'car'([X | _]) ->
-  X.
-
-'cdr'([_ | Y]) ->
-  Y.
 
 'caar'([[X | _] | _]) ->
   X.
