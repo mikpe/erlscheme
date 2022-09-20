@@ -47,7 +47,7 @@ file(Arg, Opts) ->
   end,
   CerlModule = translate_module(AST),
   {ok, _} = core_lint:module(CerlModule),
-  case proplists:get_bool(save_ast, Opts) of
+  case proplists:get_bool(save_core, Opts) of
     true ->
       ok = file:write_file(BaseName ++ ".core",
                            io_lib:format("~ts\n", [core_pp:format(CerlModule)]));
