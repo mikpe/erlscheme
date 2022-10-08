@@ -39,7 +39,7 @@ compile: $(REBAR3) src/es_uc_ctype.erl
 $(BIN_DIR)/erlscheme:
 	mkdir -p $(BIN_DIR)
 	echo '#!/bin/sh' > $(BIN_DIR)/erlscheme
-	echo "exec /usr/bin/env erl -pa $(EBIN_DIR) -noshell -s es_repl start -s erlang halt" >> $(BIN_DIR)/erlscheme
+	echo "exec erl -pa $(EBIN_DIR) -noshell -s es_repl start -s erlang halt" >> $(BIN_DIR)/erlscheme
 	chmod +x $(BIN_DIR)/erlscheme
 
 install:	compile $(BIN_DIR)/erlscheme
