@@ -1,0 +1,3 @@
+#!/bin/sh
+EBIN_DIR=@EBIN_DIR@
+exec erl -pa ${EBIN_DIR} -noshell -s es_repl start -s erlang halt

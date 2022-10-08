@@ -38,8 +38,7 @@ compile: $(REBAR3) src/es_uc_ctype.erl
 
 $(BIN_DIR)/erlscheme:
 	mkdir -p $(BIN_DIR)
-	echo '#!/bin/sh' > $(BIN_DIR)/erlscheme
-	echo "exec erl -pa $(EBIN_DIR) -noshell -s es_repl start -s erlang halt" >> $(BIN_DIR)/erlscheme
+	sed "s,@EBIN_DIR@,$(EBIN_DIR),g" < make/erlscheme.in > $(BIN_DIR)/erlscheme
 	chmod +x $(BIN_DIR)/erlscheme
 
 install:	compile $(BIN_DIR)/erlscheme
@@ -51,7 +50,7 @@ install:	compile $(BIN_DIR)/erlscheme
 	cp $(SCM_DIR)/*.scm $(DESTDIR)$(datadir)/erlscheme/scm
 	: install the 'erlscheme' executable
 	mkdir -p $(DESTDIR)$(bindir)
-	sed s,$(EBIN_DIR),$(datadir)/erlscheme/ebin,g < $(BIN_DIR)/erlscheme > $(DESTDIR)$(bindir)/erlscheme
+	sed "s,@EBIN_DIR@,$(datadir)/erlscheme/ebin,g" < make/erlscheme.in > $(DESTDIR)$(bindir)/erlscheme
 	chmod +x $(DESTDIR)$(bindir)/erlscheme
 
 clean distclean realclean:
