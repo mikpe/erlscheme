@@ -1,3 +1,39 @@
 #!/bin/sh
+
+# Path into the ErlScheme installation.
 EBIN_DIR=@EBIN_DIR@
-exec erl -pa ${EBIN_DIR} -noshell -s es_repl start -s erlang halt
+
+ERL_ARGS=
+ES_ARGS=
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+	--erl)
+	    shift
+	    if [ $# -eq 0 ]; then
+		echo "option --erl: missing argument"
+		exit 1
+	    fi
+	    ERL_ARGS="${ERL_ARGS} $1"
+	    ;;
+	--)
+	    shift
+	    # Append remaining arguments to ERL_ARGS.
+	    break
+	    ;;
+	*)
+	    # We prefix each ErlScheme argument with an "x" to prevent
+	    # it being interpreted as an emulator or init flag by erl.
+	    ES_ARGS="${ES_ARGS} x$1"
+	    ;;
+    esac
+    shift
+done
+
+while [ $# -gt 0 ]; do
+    ERL_ARGS="${ERL_ARGS} $1"
+    shift
+done
+
+# use -run not -s to avoid coercing argument strings to atoms
+exec erl -pa ${EBIN_DIR} -noshell ${ERL_ARGS} -run es_main start ${ES_ARGS} -run erlang halt
