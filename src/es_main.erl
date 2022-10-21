@@ -25,8 +25,23 @@
 start() ->
   start([]).
 
-start(_Argv = []) ->
-  es_repl:start();
-start(Argv) ->
-  io:format(standard_error, "erlscheme: invalid arguments: ~p\n", [Argv]),
-  halt(1).
+start(PreArgv) ->
+  Argv = lists:map(fun([$x | Arg]) -> Arg end, PreArgv),
+  case Argv of
+    ["-c" | Files] ->
+      compile(Files);
+    ["--compile" | Files] ->
+      compile(Files);
+    [] ->
+      es_repl:start();
+    _ ->
+      io:format(standard_error, "erlscheme: invalid arguments: ~p\n", [Argv]),
+      halt(1)
+  end.
+
+compile(Files) ->
+  lists:foreach(fun do_compile/1, Files).
+
+do_compile(File) ->
+  erlang:put('es_load_prefix', "."),
+  es_compile:file(File).
