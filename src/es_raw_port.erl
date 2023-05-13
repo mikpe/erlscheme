@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2022 Mikael Pettersson
+%%%   Copyright 2014-2023 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -38,7 +38,6 @@
         , open_input_file/1
         , open_input_string/1
         , open_stdin/0
-        , peek_char/1
         , read_char/1
         ]).
 
@@ -59,7 +58,6 @@
 %% commands
 -define(close, close).
 -define(file, file).
--define(peek_char, peek_char).
 -define(read_char, read_char).
 -define(stdin, stdin).
 -define(string, string).
@@ -81,10 +79,6 @@ open_input_string(String) ->
 -spec open_stdin() -> es_port().
 open_stdin() ->
   open_input(?stdin).
-
--spec peek_char(es_port()) -> integer().
-peek_char(Pid) ->
-  call(Pid, ?peek_char).
 
 -spec read_char(es_port()) -> integer().
 read_char(Pid) ->
@@ -108,7 +102,6 @@ open_input(Arg) ->
 
 -record(input_port_funs,
         { close
-        , peek_char
         , read_char
         }).
 
@@ -137,9 +130,6 @@ handle_call(Req, _From, State) ->
     ?close ->
       Result = handle_close(State),
       {stop, normal, Result, []};
-    ?peek_char ->
-      {Result, NewState} = handle_peek_char(State),
-      {reply, Result, NewState};
     ?read_char ->
       {Result, NewState} = handle_read_char(State),
       {reply, Result, NewState};
@@ -167,10 +157,6 @@ code_change(_OldVsn, State, _Extra) ->
 handle_close(#server_state{funs = Funs, state = State}) ->
   (Funs#input_port_funs.close)(State).
 
-handle_peek_char(ServerState = #server_state{funs = Funs, state = State}) ->
-  {Result, NewState} = (Funs#input_port_funs.peek_char)(State),
-  {Result, ServerState#server_state{state = NewState}}.
-
 handle_read_char(ServerState = #server_state{funs = Funs, state = State}) ->
   {Result, NewState} = (Funs#input_port_funs.read_char)(State),
   {Result, ServerState#server_state{state = NewState}}.
@@ -181,18 +167,12 @@ do_open_input_string(String) ->
   Funs =
     #input_port_funs
       { close = fun noop_close/1
-      , peek_char = fun input_string_peek_char/1
       , read_char = fun input_string_read_char/1
       },
   {ok, #server_state{funs = Funs, state = String}}.
 
 noop_close(_) ->
   {ok, true}.
-
-input_string_peek_char([C | _] = State) ->
-  {{ok, C}, State};
-input_string_peek_char([] = _State) ->
-  {{ok, -1}, []}.
 
 input_string_read_char([C | State]) ->
   {{ok, C}, State};
@@ -209,7 +189,6 @@ do_open_input_file(Path) ->
       Funs =
         #input_port_funs
           { close = fun input_file_close/1
-          , peek_char = fun input_file_peek_char/1
           , read_char = fun input_file_read_char/1
           },
       {ok, #server_state{funs = Funs, state = {[], IoDev}}};
@@ -221,19 +200,6 @@ input_file_close({_, IoDev}) ->
   case file:close(IoDev) of
     ok -> {ok, true};
     {error, Reason} -> {error, {file, Reason}}
-  end.
-
-input_file_peek_char(State = {Buf, IoDev}) ->
-  case Buf of
-    [] ->
-      case io:get_line(IoDev, []) of
-        Line = [Ch | _] ->
-          {{ok, Ch}, {Line, IoDev}};
-        eof ->
-          {{ok, -1}, {[], IoDev}}
-      end;
-    [Ch | _] ->
-      {{ok, Ch}, State}
   end.
 
 input_file_read_char({Buf, IoDev}) ->
@@ -254,7 +220,6 @@ input_file_read_char({Buf, IoDev}) ->
 do_open_stdin() ->
   Funs = #input_port_funs
     { close = fun noop_close/1
-    , peek_char = fun input_file_peek_char/1
     , read_char = fun input_file_read_char/1
     },
   {ok, #server_state{funs = Funs, state = {[], standard_io}}}.
