@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2022 Mikael Pettersson
+%%%   Copyright 2014-2023 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -97,14 +97,19 @@ call(Pid, Cmd) ->
 %% gen_server callbacks --------------------------------------------------------
 
 -record(state,
-        { port
+        { %% port and name don't change after init
+          port
+        , name
+          %% if peeked is =/= [] it is the value of the last retrieved character,
+          %% which was peeked not read, and line and column have not been updated
+        , peeked
+          %% line and column give the position of the next character to be retrieved
         , line
         , column
-        , name
         }).
 
 init({Port, Name}) ->
-  {ok, #state{port = Port, line = 1, column = 0, name = Name}}.
+  {ok, #state{port = Port, name = Name, peeked = [], line = 1, column = 0}}.
 
 handle_call(Req, _From, State) ->
   case Req of
@@ -121,8 +126,8 @@ handle_call(Req, _From, State) ->
       Result = handle_name(State),
       {reply, Result, State};
     ?peek_char ->
-      Result = handle_peek_char(State),
-      {reply, Result, State};
+      {Result, NewState} = handle_peek_char(State),
+      {reply, Result, NewState};
     ?read_char ->
       {Result, NewState} = handle_read_char(State),
       {reply, Result, NewState};
@@ -160,10 +165,20 @@ handle_name(State) ->
   {ok, State#state.name}.
 
 handle_peek_char(State) ->
-  {ok, es_raw_port:peek_char(State#state.port)}.
+  case State#state.peeked of
+    [] ->
+      Ch = es_raw_port:read_char(State#state.port),
+      {{ok, Ch}, State#state{peeked = Ch}};
+    Ch ->
+      {{ok, Ch}, State}
+  end.
 
-handle_read_char(State) ->
-  Ch = es_raw_port:read_char(State#state.port),
+handle_read_char(State0) ->
+  {Ch, State} =
+    case State0#state.peeked of
+      [] -> {es_raw_port:read_char(State0#state.port), State0};
+      Peeked -> {Peeked, State0#state{peeked = []}}
+    end,
   NewState =
     case Ch of
       $\n ->
