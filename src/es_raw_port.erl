@@ -191,28 +191,24 @@ do_open_input_file(Path) ->
           { close = fun input_file_close/1
           , read_char = fun input_file_read_char/1
           },
-      {ok, #server_state{funs = Funs, state = {[], IoDev}}};
+      {ok, #server_state{funs = Funs, state = IoDev}};
     {error, Reason} ->
       {error, {?MODULE, {bad_file, Path, Reason}}}
   end.
 
-input_file_close({_, IoDev}) ->
+input_file_close(IoDev) ->
   case file:close(IoDev) of
     ok -> {ok, true};
     {error, Reason} -> {error, {file, Reason}}
   end.
 
-input_file_read_char({Buf, IoDev}) ->
-  case Buf of
-    [] ->
-      case io:get_line(IoDev, []) of
-        [Ch | Rest] ->
-          {{ok, Ch}, {Rest, IoDev}};
-        eof ->
-         {{ok, -1}, {[], IoDev}}
-      end;
-    [Ch | Rest] ->
-      {{ok, Ch}, {Rest, IoDev}}
+input_file_read_char(IoDev) ->
+  %% use the io module here since file:read/2 doesn't support full Unicode
+  case io:get_chars(IoDev, [], 1) of
+    [Ch] ->
+      {{ok, Ch}, IoDev};
+    eof ->
+      {{ok, -1}, IoDev}
   end.
 
 %% Standard input port ---------------------------------------------------------
@@ -222,7 +218,7 @@ do_open_stdin() ->
     { close = fun noop_close/1
     , read_char = fun input_file_read_char/1
     },
-  {ok, #server_state{funs = Funs, state = {[], standard_io}}}.
+  {ok, #server_state{funs = Funs, state = standard_io}}.
 
 %% Error Formatting ------------------------------------------------------------
 
