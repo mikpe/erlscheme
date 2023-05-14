@@ -16,9 +16,8 @@
 %%%
 %%% es_lexinput.erl
 %%%
-%%% Wraps a raw input port with state to maintain line number and column,
-%%% and to remember the port's file name (if any).  Like raw input ports,
-%%% the state is maintained in a separate Erlang process.
+%%% Wraps an input port with a gen_server to maintain line number and column,
+%%% the latest peeked character (if any), and its file name (if any).
 
 -module(es_lexinput).
 -behaviour(gen_server).
@@ -114,9 +113,12 @@ open(Arg) ->
 %% gen_server callbacks --------------------------------------------------------
 
 -record(state,
-        { %% port and name don't change after init
-          port
-        , name
+        { %% name and port access functions don't change after init
+          name
+        , port_read_char
+        , port_close
+          %% port-specific state (IoDev handle or string buffer)
+        , port_state
           %% if peeked is =/= [] it is the value of the last retrieved character,
           %% which was peeked not read, and line and column have not been updated
         , peeked
@@ -127,8 +129,15 @@ open(Arg) ->
 
 init(Arg) ->
   case handle_init(Arg) of
-    {ok, {Port, Name}} ->
-      {ok, #state{port = Port, name = Name, peeked = [], line = 1, column = 0}};
+    {ok, {Name, PortReadChar, PortClose, PortState}} ->
+      {ok, #state{ name = Name
+                 , port_read_char = PortReadChar
+                 , port_close = PortClose
+                 , port_state = PortState
+                 , peeked = []
+                 , line = 1
+                 , column = 0
+                 }};
     {error, Reason} ->
       %% The {shutdown, ...} wrapper prevents an unwanted crash report.
       {stop, {shutdown, Reason}}
@@ -176,21 +185,14 @@ code_change(_OldVsn, State, _Extra) ->
 %% gen_server internals --------------------------------------------------------
 
 handle_init(Arg) ->
-  try
-    case Arg of
-      {?file, Path} ->
-        {ok, {es_raw_port:open_input_file(Path), filename:basename(Path)}};
-      ?stdin ->
-        {ok, {es_raw_port:open_stdin(), "<stdin>"}};
-      {?string, String} ->
-        {ok, {es_raw_port:open_input_string(String), ""}}
-    end
-  catch error:Reason ->
-    {error, Reason}
+  case Arg of
+    {?file, Path} -> open_file_port(Path);
+    ?stdin -> open_stdin_port();
+    {?string, String} -> open_string_port(String)
   end.
 
 handle_close(State) ->
-  {ok, es_raw_port:close_input_port(State#state.port)}.
+  {ok, port_close(State)}.
 
 handle_column(State) ->
   {ok, State#state.column}.
@@ -204,8 +206,8 @@ handle_name(State) ->
 handle_peek_char(State) ->
   case State#state.peeked of
     [] ->
-      Ch = es_raw_port:read_char(State#state.port),
-      {{ok, Ch}, State#state{peeked = Ch}};
+      {Ch, NewState} = port_read_char(State),
+      {{ok, Ch}, NewState#state{peeked = Ch}};
     Ch ->
       {{ok, Ch}, State}
   end.
@@ -213,7 +215,7 @@ handle_peek_char(State) ->
 handle_read_char(State0) ->
   {Ch, State} =
     case State0#state.peeked of
-      [] -> {es_raw_port:read_char(State0#state.port), State0};
+      [] -> port_read_char(State0);
       Peeked -> {Peeked, State0#state{peeked = []}}
     end,
   NewState =
@@ -231,3 +233,51 @@ handle_read_char(State0) ->
         State#state{column = Column + 1}
     end,
   {{ok, Ch}, NewState}.
+
+%% port operations -------------------------------------------------------------
+
+open_file_port(Path) ->
+  case file:open(Path, [read, {encoding, utf8}, read_ahead]) of
+    {ok, IoDev} ->
+      {ok, {filename:basename(Path), fun iodev_read_char/1, fun iodev_close/1, IoDev}};
+    {error, Reason} ->
+      {error, {file, Reason}}
+  end.
+
+open_stdin_port() ->
+  {ok, {"<stdin>", fun iodev_read_char/1, fun noop_close/1, standard_io}}.
+
+open_string_port(String) ->
+  {ok, {"", fun string_read_char/1, fun noop_close/1, String}}.
+
+port_read_char(State) ->
+  (State#state.port_read_char)(State).
+
+-compile({no_auto_import, [port_close/1]}).
+port_close(State) ->
+  (State#state.port_close)(State).
+
+iodev_read_char(State = #state{port_state = IoDev}) ->
+  Ch =
+    case io:get_chars(IoDev, [], 1) of
+      [Ch0] -> Ch0;
+      eof  -> -1
+    end,
+  {Ch, State}.
+
+iodev_close(#state{port_state = IoDev}) ->
+  case file:close(IoDev) of
+    ok -> ok;
+    {error, Reason} -> {error, {file, Reason}}
+  end.
+
+string_read_char(State = #state{port_state = String}) ->
+  case String of
+    [Ch | Rest] ->
+      {Ch, State#state{port_state = Rest}};
+    [] ->
+      {-1, State}
+  end.
+
+noop_close(_State) ->
+  ok.
