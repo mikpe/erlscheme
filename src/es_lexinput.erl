@@ -28,7 +28,6 @@
         , column/1
         , line/1
         , name/1
-        , open/2
         , open_file/1
         , open_stdin/0
         , open_string/1
@@ -78,10 +77,6 @@ line(LI) ->
 -spec name(lexinput()) -> file:filename_all().
 name(LI) ->
   call(LI, ?name).
-
--spec open(es_raw_port:es_port(), file:filename_all()) -> lexinput().
-open(Port, Name) ->
-  open({Port, Name}).
 
 -spec open_file(file:filename_all()) -> lexinput().
 open_file(Path) ->
@@ -188,9 +183,7 @@ handle_init(Arg) ->
       ?stdin ->
         {ok, {es_raw_port:open_stdin(), "<stdin>"}};
       {?string, String} ->
-        {ok, {es_raw_port:open_input_string(String), ""}};
-      {Port, Name} ->
-        {ok, {Port, Name}}
+        {ok, {es_raw_port:open_input_string(String), ""}}
     end
   catch error:Reason ->
     {error, Reason}
