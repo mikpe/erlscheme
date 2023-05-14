@@ -29,6 +29,9 @@
         , line/1
         , name/1
         , open/2
+        , open_file/1
+        , open_stdin/0
+        , open_string/1
         , peek_char/1
         , read_char/1
         ]).
@@ -50,10 +53,13 @@
 %% commands
 -define(close, close).
 -define(column, column).
+-define(file, file).
 -define(line, line).
 -define(name, name).
 -define(peek_char, peek_char).
 -define(read_char, read_char).
+-define(stdin, stdin).
+-define(string, string).
 
 %% API -------------------------------------------------------------------------
 
@@ -75,9 +81,19 @@ name(LI) ->
 
 -spec open(es_raw_port:es_port(), file:filename_all()) -> lexinput().
 open(Port, Name) ->
-  %% deliberately throw in case of error
-  {ok, Pid} = gen_server:start(?MODULE, {Port, Name}, []),
-  Pid.
+  open({Port, Name}).
+
+-spec open_file(file:filename_all()) -> lexinput().
+open_file(Path) ->
+  open({?file, Path}).
+
+-spec open_stdin() -> lexinput().
+open_stdin() ->
+  open(?stdin).
+
+-spec open_string(string()) -> lexinput().
+open_string(String) ->
+  open({?string, String}).
 
 -spec peek_char(lexinput()) -> integer().
 peek_char(LI) ->
@@ -94,6 +110,12 @@ call(Pid, Cmd) ->
   {ok, Res} = gen_server:call(Pid, Cmd, 'infinity'),
   Res.
 
+open(Arg) ->
+  case gen_server:start(?MODULE, Arg, []) of
+    {ok, Pid} -> Pid;
+    {error, {shutdown, Reason}} -> error(Reason)
+  end.
+
 %% gen_server callbacks --------------------------------------------------------
 
 -record(state,
@@ -108,8 +130,14 @@ call(Pid, Cmd) ->
         , column
         }).
 
-init({Port, Name}) ->
-  {ok, #state{port = Port, name = Name, peeked = [], line = 1, column = 0}}.
+init(Arg) ->
+  case handle_init(Arg) of
+    {ok, {Port, Name}} ->
+      {ok, #state{port = Port, name = Name, peeked = [], line = 1, column = 0}};
+    {error, Reason} ->
+      %% The {shutdown, ...} wrapper prevents an unwanted crash report.
+      {stop, {shutdown, Reason}}
+  end.
 
 handle_call(Req, _From, State) ->
   case Req of
@@ -151,6 +179,22 @@ code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
 
 %% gen_server internals --------------------------------------------------------
+
+handle_init(Arg) ->
+  try
+    case Arg of
+      {?file, Path} ->
+        {ok, {es_raw_port:open_input_file(Path), filename:basename(Path)}};
+      ?stdin ->
+        {ok, {es_raw_port:open_stdin(), "<stdin>"}};
+      {?string, String} ->
+        {ok, {es_raw_port:open_input_string(String), ""}};
+      {Port, Name} ->
+        {ok, {Port, Name}}
+    end
+  catch error:Reason ->
+    {error, Reason}
+  end.
 
 handle_close(State) ->
   {ok, es_raw_port:close_input_port(State#state.port)}.
