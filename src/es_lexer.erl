@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2022 Mikael Pettersson
+%%%   Copyright 2014-2023 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -97,26 +97,21 @@ token(LI) ->
 
 -spec string_to_number(string(), integer()) -> number() | false.
 string_to_number(String, Radix) ->
-  Port = es_raw_port:open_input_string(String),
+  LI = es_lexinput:open_string(String),
   try
-    LI = es_lexinput:open(Port, []),
-    try
-      case number_q0(LI, Radix) of
-        Num when is_number(Num) ->
-          case es_lexinput:peek_char(LI) of
-            -1 ->
-              Num;
-            _ ->
-              false
-          end;
-        false ->
-          false
-      end
-    after
-      es_lexinput:close(LI)
+    case number_q0(LI, Radix) of
+      Num when is_number(Num) ->
+        case es_lexinput:peek_char(LI) of
+          -1 ->
+            Num;
+          _ ->
+            false
+        end;
+      false ->
+        false
     end
   after
-    es_raw_port:close_input_port(Port)
+    es_lexinput:close(LI)
   end.
 
 %% Internals -------------------------------------------------------------------

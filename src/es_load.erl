@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2022 Mikael Pettersson
+%%%   Copyright 2014-2023 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -71,17 +71,16 @@ do_expand(Datum, {Acc, SynEnv}) ->
 load(Fun, Acc, FileName) ->
   OldPrefix = erlang:get('es_load_prefix'),
   NewPath = filename:join(OldPrefix, FileName),
-  P = es_raw_port:open_input_file(NewPath),
-  erlang:put('es_load_prefix', filename:dirname(NewPath)),
+  LI = es_lexinput:open_file(NewPath),
   try
-    LI = es_lexinput:open(P, FileName),
+    erlang:put('es_load_prefix', filename:dirname(NewPath)),
     try
       loop(Fun, Acc, LI)
     after
-      es_lexinput:close(LI)
+      erlang:put('es_load_prefix', OldPrefix)
     end
   after
-    erlang:put('es_load_prefix', OldPrefix)
+    es_lexinput:close(LI)
   end.
 
 loop(Fun, Acc, LI) ->

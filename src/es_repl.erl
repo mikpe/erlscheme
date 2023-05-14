@@ -1,6 +1,6 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%%   Copyright 2014-2022 Mikael Pettersson
+%%%   Copyright 2014-2023 Mikael Pettersson
 %%%
 %%%   Licensed under the Apache License, Version 2.0 (the "License");
 %%%   you may not use this file except in compliance with the License.
@@ -36,8 +36,7 @@ init() ->
     es_lib_scheme_base_init(),
     es_macros_init(),
     es_load_init(),
-    P = es_raw_port:open_stdin(),
-    es_lexinput:open(P, "<stdin>")
+    es_lexinput:open_stdin()
   catch
     Class:Reason:Stack ->
       io:format("fatal ~tp during startup: ~ts\n", [Class, es_error:format(Reason)]),
