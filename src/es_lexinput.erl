@@ -113,12 +113,11 @@ open(Arg) ->
 %% gen_server callbacks --------------------------------------------------------
 
 -record(state,
-        { %% name and port access functions don't change after init
+        { %% name and access functions don't change after init
           name
-        , port_read_char
-        , port_close
-          %% port-specific state (IoDev handle or string buffer)
-        , port_state
+        , close
+          %% standard Erlang I/O device handle
+        , iodev
           %% if peeked is =/= [] it is the value of the last retrieved character,
           %% which was peeked not read, and line and column have not been updated
         , peeked
@@ -128,12 +127,11 @@ open(Arg) ->
         }).
 
 init(Arg) ->
-  case handle_init(Arg) of
-    {ok, {Name, PortReadChar, PortClose, PortState}} ->
+  case handle_open(Arg) of
+    {ok, {Name, Close, IoDev}} ->
       {ok, #state{ name = Name
-                 , port_read_char = PortReadChar
-                 , port_close = PortClose
-                 , port_state = PortState
+                 , close = Close
+                 , iodev = IoDev
                  , peeked = []
                  , line = 1
                  , column = 0
@@ -184,15 +182,15 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% gen_server internals --------------------------------------------------------
 
-handle_init(Arg) ->
+handle_open(Arg) ->
   case Arg of
-    {?file, Path} -> open_file_port(Path);
-    ?stdin -> open_stdin_port();
-    {?string, String} -> open_string_port(String)
+    {?file, Path} -> file_open(Path);
+    ?stdin -> stdin_open();
+    {?string, String} -> string_open(String)
   end.
 
 handle_close(State) ->
-  {ok, port_close(State)}.
+  {ok, iodev_close(State)}.
 
 handle_column(State) ->
   {ok, State#state.column}.
@@ -206,8 +204,8 @@ handle_name(State) ->
 handle_peek_char(State) ->
   case State#state.peeked of
     [] ->
-      {Ch, NewState} = port_read_char(State),
-      {{ok, Ch}, NewState#state{peeked = Ch}};
+      Ch = iodev_read_char(State),
+      {{ok, Ch}, State#state{peeked = Ch}};
     Ch ->
       {{ok, Ch}, State}
   end.
@@ -215,7 +213,7 @@ handle_peek_char(State) ->
 handle_read_char(State0) ->
   {Ch, State} =
     case State0#state.peeked of
-      [] -> port_read_char(State0);
+      [] -> {iodev_read_char(State0), State0};
       Peeked -> {Peeked, State0#state{peeked = []}}
     end,
   NewState =
@@ -234,46 +232,43 @@ handle_read_char(State0) ->
     end,
   {{ok, Ch}, NewState}.
 
-%% port operations -------------------------------------------------------------
+%% IoDev operations ------------------------------------------------------------
 
-open_file_port(Path) ->
+iodev_close(#state{close = Close, iodev = IoDev}) ->
+  Close(IoDev).
+
+iodev_read_char(#state{iodev = IoDev}) ->
+  case io:get_chars(IoDev, [], 1) of
+    [Ch] -> Ch;
+    eof  -> -1
+  end.
+
+%% file operations -------------------------------------------------------------
+
+file_open(Path) ->
   case file:open(Path, [read, {encoding, utf8}, read_ahead]) of
     {ok, IoDev} ->
-      {ok, {filename:basename(Path), fun iodev_read_char/1, fun iodev_close/1, IoDev}};
+      {ok, {filename:basename(Path), fun file_close/1, IoDev}};
     {error, Reason} ->
       {error, {file, Reason}}
   end.
 
-open_stdin_port() ->
-  {ok, {"<stdin>", fun iodev_read_char/1, fun noop_close/1, standard_io}}.
-
-open_string_port(String) ->
-  IoDev = es_input_string_iodev:open(String),
-  {ok, {"", fun iodev_read_char/1, fun string_close/1, IoDev}}.
-
-port_read_char(State) ->
-  (State#state.port_read_char)(State).
-
--compile({no_auto_import, [port_close/1]}).
-port_close(State) ->
-  (State#state.port_close)(State).
-
-iodev_read_char(State = #state{port_state = IoDev}) ->
-  Ch =
-    case io:get_chars(IoDev, [], 1) of
-      [Ch0] -> Ch0;
-      eof  -> -1
-    end,
-  {Ch, State}.
-
-iodev_close(#state{port_state = IoDev}) ->
+file_close(IoDev) ->
   case file:close(IoDev) of
     ok -> ok;
     {error, Reason} -> {error, {file, Reason}}
   end.
 
-noop_close(_State) ->
+%% stdin operations ------------------------------------------------------------
+
+stdin_open() ->
+  {ok, {"<stdin>", fun noop_close/1, standard_io}}.
+
+noop_close(_IoDev) ->
   ok.
 
-string_close(#state{port_state = IoDev}) ->
-  es_input_string_iodev:close(IoDev).
+%% string operations -----------------------------------------------------------
+
+string_open(String) ->
+  IoDev = es_input_string_iodev:open(String),
+  {ok, {"<string>", fun es_input_string_iodev:close/1, IoDev}}.
