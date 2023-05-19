@@ -45,16 +45,7 @@ init() ->
   end.
 
 es_lib_scheme_base_init() ->
-  maps_foreach(fun es_gloenv:enter_var/2, es_lib_scheme_base:env()).
-
-%% TODO: remove this when we no longer support OTP-23
--if(?OTP_RELEASE >= 24).
-maps_foreach(Fun, Map) ->
-  maps:foreach(Fun, Map).
--else.
-maps_foreach(Fun, Map) ->
-  maps:fold(fun(K, V, _Acc) -> Fun(K, V), ok end, ok, Map).
--endif.
+  maps:foreach(fun es_gloenv:enter_var/2, es_lib_scheme_base:env()).
 
 es_macros_init() ->
   lists:foreach(
