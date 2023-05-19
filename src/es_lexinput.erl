@@ -85,7 +85,7 @@ open_file(Path) ->
 open_stdin() ->
   open(?stdin).
 
--spec open_string(string()) -> lexinput().
+-spec open_string(string() | binary()) -> lexinput().
 open_string(String) ->
   open({?string, String}).
 
@@ -248,7 +248,8 @@ open_stdin_port() ->
   {ok, {"<stdin>", fun iodev_read_char/1, fun noop_close/1, standard_io}}.
 
 open_string_port(String) ->
-  {ok, {"", fun string_read_char/1, fun noop_close/1, String}}.
+  IoDev = es_input_string_iodev:open(String),
+  {ok, {"", fun iodev_read_char/1, fun string_close/1, IoDev}}.
 
 port_read_char(State) ->
   (State#state.port_read_char)(State).
@@ -271,13 +272,8 @@ iodev_close(#state{port_state = IoDev}) ->
     {error, Reason} -> {error, {file, Reason}}
   end.
 
-string_read_char(State = #state{port_state = String}) ->
-  case String of
-    [Ch | Rest] ->
-      {Ch, State#state{port_state = Rest}};
-    [] ->
-      {-1, State}
-  end.
-
 noop_close(_State) ->
   ok.
+
+string_close(#state{port_state = IoDev}) ->
+  es_input_string_iodev:close(IoDev).
