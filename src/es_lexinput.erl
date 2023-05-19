@@ -115,7 +115,7 @@ open(Arg) ->
 -record(state,
         { %% name and access functions don't change after init
           name
-        , close
+        , kind
           %% standard Erlang I/O device handle
         , iodev
           %% if peeked is =/= [] it is the value of the last retrieved character,
@@ -128,9 +128,9 @@ open(Arg) ->
 
 init(Arg) ->
   case handle_open(Arg) of
-    {ok, {Name, Close, IoDev}} ->
+    {ok, {Name, Kind, IoDev}} ->
       {ok, #state{ name = Name
-                 , close = Close
+                 , kind = Kind
                  , iodev = IoDev
                  , peeked = []
                  , line = 1
@@ -234,8 +234,16 @@ handle_read_char(State0) ->
 
 %% IoDev operations ------------------------------------------------------------
 
-iodev_close(#state{close = Close, iodev = IoDev}) ->
-  Close(IoDev).
+iodev_close(#state{kind = Kind, iodev = IoDev}) ->
+  case Kind of
+    ?file ->
+      case file:close(IoDev) of
+        ok -> ok;
+        {error, Reason} -> {error, {file, Reason}}
+      end;
+    ?stdin -> ok;
+    ?string -> es_input_string_iodev:close(IoDev)
+  end.
 
 iodev_read_char(#state{iodev = IoDev}) ->
   case io:get_chars(IoDev, [], 1) of
@@ -248,27 +256,17 @@ iodev_read_char(#state{iodev = IoDev}) ->
 file_open(Path) ->
   case file:open(Path, [read, {encoding, utf8}, read_ahead]) of
     {ok, IoDev} ->
-      {ok, {filename:basename(Path), fun file_close/1, IoDev}};
+      {ok, {filename:basename(Path), ?file, IoDev}};
     {error, Reason} ->
       {error, {file, Reason}}
-  end.
-
-file_close(IoDev) ->
-  case file:close(IoDev) of
-    ok -> ok;
-    {error, Reason} -> {error, {file, Reason}}
   end.
 
 %% stdin operations ------------------------------------------------------------
 
 stdin_open() ->
-  {ok, {"<stdin>", fun noop_close/1, standard_io}}.
-
-noop_close(_IoDev) ->
-  ok.
+  {ok, {"<stdin>", ?stdin, standard_io}}.
 
 %% string operations -----------------------------------------------------------
 
 string_open(String) ->
-  IoDev = es_input_string_iodev:open(String),
-  {ok, {"<string>", fun es_input_string_iodev:close/1, IoDev}}.
+  {ok, {"<string>", ?string, es_input_string_iodev:open(String)}}.
