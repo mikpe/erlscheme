@@ -1,4 +1,4 @@
-#   Copyright 2014-2023 Mikael Pettersson
+#   Copyright 2014-2025 Mikael Pettersson
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 SHELL := $(shell command -v bash)
 REBAR3 := $(shell type -p rebar3 || echo ./rebar3)
 REBAR3_GIT = https://github.com/erlang/rebar3.git
-REBAR3_VSN = 3.21.0
+REBAR3_VSN = 3.24.0
 
 prefix=/usr/local
 exec_prefix=$(prefix)
