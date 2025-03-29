@@ -1,4 +1,4 @@
-   Copyright 2014-2022 Mikael Pettersson
+   Copyright 2014-2025 Mikael Pettersson
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
