@@ -1,6 +1,6 @@
 %% -*- erlang -*-
 %%
-%% Copyright (C) 2022  Mikael Pettersson
+%% Copyright (C) 2022-2025  Mikael Pettersson
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -14,28 +14,17 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 
-CONFIG0 =
-  (fun() ->
-     case erlang:system_info(otp_release) of
-      VSN when VSN < "25" ->
-        io:format("OTP ~s: removing missing_return dialyzer option\n", [VSN]),
-        lists:keystore(dialyzer, 1, CONFIG, {dialyzer, [{warnings, [unknown]}]});
-      _ ->
-        CONFIG
-      end
-    end)(),
-
 case os:cmd("git describe --dirty") of
   "fatal: " ++ _ ->
-    CONFIG0;
+    CONFIG;
   Output ->
     VSN = string:trim(Output),
     Opts =
-      case lists:keyfind(erl_opts, 1, CONFIG0) of
+      case lists:keyfind(erl_opts, 1, CONFIG) of
         false -> [];
         {erl_opts, Opts0} ->
           lists:filter(fun({d, 'VSN', _}) -> false; (_) -> true end, Opts0)
       end,
     NewOpts = [{d, 'VSN', VSN} | Opts],
-    lists:keystore(erl_opts, 1, CONFIG0, {erl_opts, NewOpts})
+    lists:keystore(erl_opts, 1, CONFIG, {erl_opts, NewOpts})
   end.
