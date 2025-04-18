@@ -2,7 +2,7 @@
 %% -*- erlang -*-
 %%! +Bd -noshell -smp auto
 
-%%   Copyright 2022-2023 Mikael Pettersson
+%%   Copyright 2022-2025 Mikael Pettersson
 %%
 %%   Licensed under the Apache License, Version 2.0 (the "License");
 %%   you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ write_ctype_module(UnicodeCtype, OutFile) ->
 do_write_ctype_module(UnicodeCtype, IoDev) ->
   io:format(IoDev, "%% -*- erlang-indent-level: 2 -*-\n", []),
   io:format(IoDev, "%%\n", []),
-  io:format(IoDev, "%%   Copyright 2022-2023 Mikael Pettersson\n", []),
+  io:format(IoDev, "%%   Copyright 2022-2025 Mikael Pettersson\n", []),
   io:format(IoDev, "%%\n", []),
   io:format(IoDev, "%%   Licensed under the Apache License, Version 2.0 (the \"License\");\n", []),
   io:format(IoDev, "%%   you may not use this file except in compliance with the License.\n", []),
