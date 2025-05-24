@@ -17,7 +17,7 @@
 SHELL := $(shell command -v bash)
 REBAR3 := $(shell type -p rebar3 || echo ./rebar3)
 REBAR3_GIT = https://github.com/erlang/rebar3.git
-REBAR3_VSN = 3.24.0
+REBAR3_VSN = 3.25.0
 
 prefix=/usr/local
 exec_prefix=$(prefix)
